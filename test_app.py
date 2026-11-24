@@ -394,3 +394,72 @@ class InsightsTests(unittest.TestCase):
     def test_round_up(self):
         r = self.insights.round_up
         self.assertEqual([r(0), r(7.2), r(141), r(1201), r(12001)], [0, 8, 150, 1300, 13000])
+
+
+class MaterialTests(unittest.TestCase):
+    """Raw material requirements from finished goods."""
+
+    def setUp(self):
+        from datetime import date, timedelta
+        db = stock.connect()
+        for t in ("movements", "products", "locations"):
+            db.execute(f"DELETE FROM {t}")
+        db.execute("INSERT INTO locations(name) VALUES ('Main')")
+        db.close()
+        self.c = client_as("admin", ADMIN_PW)
+        p = lambda **kw: self.c.post("/api/products", json=kw)
+        self.wire = p(sku="WIRE", name="Wire rod", unit="kg").get_json()["id"]
+        r = p(sku="BOLT", name="Bolt", material_sku="wire", material_per_1000=20)
+        self.assertEqual(r.status_code, 201, r.get_json())
+        self.bolt = r.get_json()["id"]
+        db = stock.connect()
+        loc = db.execute("SELECT id FROM locations").fetchone()[0]
+        start = date.today() - timedelta(days=89)
+        ins = lambda pid, kind, q, d: db.execute(
+            "INSERT INTO movements(product_id,location_id,kind,qty,created_at,operator) VALUES (?,?,?,?,?,'t')", (pid, loc, kind, q, f"{d} 10:00:00"))
+        ins(self.wire, "IN", 500, start)
+        ins(self.bolt, "IN", 100000, start)
+        for i in range(90):                                   # 1,000 bolts a day -> 20 kg wire a day
+            ins(self.bolt, "OUT", -1000, start + timedelta(days=i))
+        db.commit()
+        db.close()
+
+    def test_link_saved_and_validated(self):
+        prod = next(x for x in self.c.get("/api/products").get_json() if x["sku"] == "BOLT")
+        self.assertEqual((prod["material_id"], prod["material_per_1000"]), (self.wire, 20))
+        bad = lambda **kw: self.c.put(f"/api/products/{self.bolt}", json={"sku": "BOLT", "name": "Bolt", **kw}).status_code
+        self.assertEqual(bad(material_sku="NOPE", material_per_1000=5), 400)
+        self.assertEqual(bad(material_sku="BOLT", material_per_1000=5), 400)
+        self.assertEqual(bad(material_sku="WIRE", material_per_1000=0), 400)
+        self.assertEqual(self.c.put(f"/api/products/{self.wire}", json={"sku": "WIRE", "name": "W", "material_sku": "BOLT", "material_per_1000": 1}).status_code, 400)
+        self.assertEqual(bad(), 200)   # no material field -> link kept
+        prod = next(x for x in self.c.get("/api/products").get_json() if x["sku"] == "BOLT")
+        self.assertEqual(prod["material_id"], self.wire)
+        self.assertEqual(bad(material_sku=""), 200)   # empty -> unlinked
+        prod = next(x for x in self.c.get("/api/products").get_json() if x["sku"] == "BOLT")
+        self.assertIsNone(prod["material_id"])
+
+    def test_requirement_numbers(self):
+        d = self.c.get("/api/insights?lead_days=5&window=90").get_json()
+        m = d["materials"][0]
+        self.assertEqual(m["sku"], "WIRE")
+        self.assertEqual(m["need_per_day"], 20)
+        self.assertEqual(m["need_30d"], 600)
+        self.assertEqual(m["need_now"], 0)            # 10,000 bolts on hand cover the 5-day lead time
+        self.assertEqual(m["cover_days"], 25)          # 500 kg / 20 kg a day
+        self.assertEqual(m["status"], "watch")         # 500 < 100 + 600
+        d = self.c.get("/api/insights?lead_days=30&window=90").get_json()
+        m = d["materials"][0]
+        self.assertEqual(m["need_now"], 1000)          # make 50,000 bolts (up to 30+30 days) x 20 kg/1000
+        self.assertEqual(m["status"], "order_now")
+        self.assertEqual(m["order_qty"], 1700)         # 1000 + 20*30 + 20*30 - 500 = 1700
+        self.assertEqual(d["summary"]["materials_short"], 1)
+
+    def test_csv_import_links(self):
+        csv = "sku,name,unit,material_sku,material_per_1000\nNUT,Nut,pcs,ROD,5\nROD,Rod,kg,,\n"
+        r = self.c.post("/api/import/products", json={"csv": csv})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        prods = {x["sku"]: x for x in self.c.get("/api/products").get_json()}
+        self.assertEqual(prods["NUT"]["material_id"], prods["ROD"]["id"])
+        r = self.c.post("/api/import/products", json={"csv": "sku,name,material_sku,material_per_1000\nNUT,Nut,MISSING,5\n"})
+        self.assertEqual(r.status_code, 400)

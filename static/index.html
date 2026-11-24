@@ -625,6 +625,7 @@ async function viewInsights() {
         <td data-label="Order" class="num">${i.order_qty ? `<span class="qty">${fmt(i.order_qty)}</span><span class="unit">${esc(i.unit)}</span>` : '—'}</td>
         <td data-label="Class">${i.abc || i.xyz ? `<span class="tag">${i.abc || '–'}${i.xyz || ''}</span>` : ''}${i.limited ? ' <span class="tag" title="Less than 4 weeks of history">new</span>' : ''}</td></tr>`).join('')}
       </tbody></table></div></section>
+    ${materialsPanel(d)}
     <div class="cols">
       <section class="panel"><div class="ph"><h2>Slow-moving stock</h2></div>
         ${d.slow.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Product</th><th class="num">On hand</th><th>Last issued</th><th class="num">Value</th></tr></thead><tbody>${d.slow.map(r => `
@@ -643,13 +644,48 @@ async function viewInsights() {
       <li><b>Reorder at</b> is the use during the supplier lead time (${d.params.lead_days} days), plus safety stock for ${d.params.service_level}% of lead times without running out, based on how much daily use varies.</li>
       <li><b>Order</b> brings stock back up to the reorder point plus ${d.params.order_cycle_days} days of use, rounded up.</li>
       <li><b>Class</b>: A products make up the first 80% of usage value, B the next 15%, C the rest. X means steady weekly demand, Y variable, Z irregular.</li>
+      <li><b>Raw material needed</b>: <i>needed now</i> is the material for the finished goods the advice says to make now. <i>Needed per 30 days</i> comes from the finished-goods forecast times the amount per 1,000. A material is marked to order when its stock doesn't cover what's needed now plus use during the lead time.</li>
       <li><b>Slow-moving</b> means in stock but not issued for ${d.params.slow_days} days. <b>Unusual movements</b> are issues far above that product's typical size, and stocktakes that removed 2% or more of the stock.</li>
     </ul></details>`;
   const reload = () => { store.set('vinex.lead', state.lead); store.set('vinex.window', state.window); viewInsights().catch(e => toast(e.message)); };
   $('#lead').onchange = e => { const v = +e.target.value; if (v >= 1 && v <= 365) { state.lead = v; reload(); } };
   $('#win').onchange = e => { state.window = +e.target.value; reload(); };
+  $$('[data-mat]').forEach(b => b.onclick = () => materialDialog(d.materials.find(m => m.id === +b.dataset.mat)));
   $('[data-anom]')?.addEventListener('click', () => { state.anomAll = true; viewInsights(); });
   $$('[data-all]').forEach(b => b.onclick = () => { state.insAll = b.dataset.all === '1'; viewInsights(); });
+}
+
+function materialsPanel(d) {
+  const ms = d.materials;
+  const head = `<div class="ph"><h2>Raw material needed</h2><span class="muted small">for the finished goods made from it</span></div>`;
+  if (!ms.length) return `<section class="panel" style="margin-bottom:16px">${head}<div class="empty"><b>No products are linked to a raw material yet</b>
+    ${isAdmin() ? 'Open Products, edit a finished product, and fill in Made from and the amount per 1,000.' : 'An administrator can link products to the wire rod they are made from.'}</div></section>`;
+  const q = n => fmt(Math.round(n));
+  return `<section class="panel" style="margin-bottom:16px">${head}
+    <div class="tablewrap"><table class="cards"><thead><tr><th>Material</th><th>Advice</th><th class="num">On hand</th><th class="num">Needed now</th><th class="num">Needed per 30 days</th><th class="num">Lasts</th><th class="num">Order</th><th></th></tr></thead><tbody>
+    ${ms.map(m => `<tr><td><div class="sku">${esc(m.sku)}</div><div class="sub">${esc(m.name)}</div></td>
+      <td data-label="Advice"><span class="pill ${INS[m.status][0]}">${INS[m.status][1]}</span></td>
+      <td data-label="On hand" class="num"><span class="qty">${q(m.on_hand)}</span><span class="unit">${esc(m.unit)}</span></td>
+      <td data-label="Needed now" class="num" title="To make what the finished goods are short of">${m.need_now ? `${q(m.need_now)}<span class="unit">${esc(m.unit)}</span>` : '—'}</td>
+      <td data-label="Needed per 30 days" class="num">${q(m.need_30d)}<span class="unit">${esc(m.unit)}</span></td>
+      <td data-label="Lasts" class="num">${days(m.cover_days)}</td>
+      <td data-label="Order" class="num">${m.order_qty ? `<span class="qty">${q(m.order_qty)}</span><span class="unit">${esc(m.unit)}</span>` : '—'}</td>
+      <td class="rowacts"><button class="link" data-mat="${m.id}">${m.products.length} ${m.products.length === 1 ? 'product' : 'products'}</button></td></tr>`).join('')}
+    </tbody></table></div></section>`;
+}
+function materialDialog(m) {
+  const dlg = $('#dlg'), q = n => fmt(Math.round(n));
+  dlg.innerHTML = `<form method="dialog"><h2>${esc(m.sku)}</h2>
+    <p class="muted" style="margin:-10px 0 16px">${esc(m.name)}. ${q(m.on_hand)} ${esc(m.unit)} on hand, about ${q(m.need_per_day)} ${esc(m.unit)} used per day.</p>
+    <div class="panel tablewrap"><table class="cards"><thead><tr><th>Made into</th><th class="num">Per 1,000</th><th class="num">To produce now</th><th class="num">Forecast, 30 days</th><th class="num">Material, 30 days</th></tr></thead><tbody>
+    ${m.products.map(p => `<tr><td><div class="sku">${esc(p.sku)}</div><div class="sub">${esc(p.name)}</div></td>
+      <td data-label="Per 1,000" class="num">${fmt(p.per_1000)}<span class="unit">${esc(m.unit)}</span></td>
+      <td data-label="To produce now" class="num">${p.make_now ? `${q(p.make_now)}<span class="unit">${esc(p.unit)}</span><div class="sub">${q(p.need_now)} ${esc(m.unit)}</div>` : '—'}</td>
+      <td data-label="Forecast, 30 days" class="num">${q(p.forecast_30d)}<span class="unit">${esc(p.unit)}</span></td>
+      <td data-label="Material, 30 days" class="num">${q(p.need_30d)}<span class="unit">${esc(m.unit)}</span></td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="actions"><button class="btn primary">Close</button></div></form>`;
+  dlg.showModal();
 }
 
 /* ---------- products ---------- */
@@ -657,13 +693,14 @@ async function viewProducts() {
   $('#view').innerHTML = phead('Products', `${state.products.length} in the catalogue`, isAdmin() ? `<button class="btn primary" onclick="productDialog()">${icon('plus')}New product</button>
       ${moreMenu(`<button onclick="importDialog('products')">Import products (CSV)</button><button onclick="importDialog('opening-stock')">Import opening stock (CSV)</button>`)}` : '') + `
     <section class="panel tablewrap">${state.products.length ? `<table class="cards"><thead><tr><th>Product</th><th>Category</th><th>Spec</th><th>Unit</th><th class="num">Minimum</th><th class="num">Unit cost</th><th>Barcode</th><th>Prodata code</th><th></th></tr></thead><tbody>${state.products.map(p => `
-      <tr><td><div class="sku">${esc(p.sku)} ${p.active ? '' : '<span class="pill off">Inactive</span>'}</div><div class="sub">${esc(p.name)}</div></td><td data-label="Category">${esc(p.category)}</td><td data-label="Spec" class="small">${esc(p.spec)}</td><td data-label="Unit">${esc(p.unit)}</td>
+      <tr><td><div class="sku">${esc(p.sku)} ${p.active ? '' : '<span class="pill off">Inactive</span>'}</div><div class="sub">${esc(p.name)}</div>${p.material_id ? `<div class="sub">Made from ${esc(state.products.find(x => x.id === p.material_id)?.sku || '')}, ${fmt(p.material_per_1000)} ${esc(state.products.find(x => x.id === p.material_id)?.unit || '')} per 1,000</div>` : ''}</td><td data-label="Category">${esc(p.category)}</td><td data-label="Spec" class="small">${esc(p.spec)}</td><td data-label="Unit">${esc(p.unit)}</td>
       <td data-label="Minimum" class="num">${fmt(p.min_stock)}</td><td data-label="Unit cost" class="num">${p.unit_cost != null ? money(p.unit_cost) : ''}</td><td data-label="Barcode" class="small">${esc(p.barcode)}</td><td data-label="Prodata code">${esc(p.prodata_code)}</td>
       <td class="rowacts">${isAdmin() ? `<button class="link" onclick="productDialog(${p.id})">Edit</button>` : ''}</td></tr>`).join('')}</tbody></table>`
       : `<div class="empty"><b>No products yet</b>${isAdmin() ? 'Add one, or import your list from a CSV file.' : 'An administrator can add products.'}</div>`}</section>`;
 }
 function productDialog(id) {
   const p = state.products.find(x => x.id === id) || { unit: 'pcs', min_stock: 0, active: 1 };
+  const mat = state.products.find(x => x.id === p.material_id);
   const { form: pform } = openDialog(`<form><h2>${id ? 'Edit product' : 'New product'}</h2>
     <div class="two"><div class="field"><label>SKU</label><input name="sku" required value="${esc(p.sku)}"></div>
       <div class="field"><label>Unit</label><input name="unit" list="units" value="${esc(p.unit)}"><datalist id="units"><option>pcs</option><option>kg</option><option>box</option><option>m</option><option>set</option></datalist></div></div>
@@ -673,6 +710,9 @@ function productDialog(id) {
     <div class="two"><div class="field"><label>Minimum stock (alert level)</label><input name="min_stock" type="number" step="any" min="0" value="${p.min_stock ?? 0}"></div>
       <div class="field"><label>Unit cost in € (optional)</label><input name="unit_cost" type="number" step="any" min="0" value="${p.unit_cost ?? ''}"></div></div>
     <div class="field"><label>Barcode or QR value on the packaging (optional)</label><div class="inputrow"><input name="barcode" autocomplete="off" value="${esc(p.barcode)}"><button type="button" class="btn" data-scan>${icon('scan')}Scan</button></div></div>
+    <div class="two"><div class="field"><label>Made from (raw material SKU, optional)</label><input name="material_sku" list="mats" autocomplete="off" placeholder="e.g. RM-10B21-8" value="${esc(mat?.sku || '')}">
+        <datalist id="mats">${state.products.filter(x => x.id !== id).map(x => `<option value="${esc(x.sku)}">${esc(x.name)}</option>`).join('')}</datalist></div>
+      <div class="field"><label id="perlbl">Material per 1,000 ${esc(p.unit || 'pcs')}</label><input name="material_per_1000" type="number" step="any" min="0" placeholder="e.g. 22.5" value="${p.material_per_1000 ?? ''}"></div></div>
     <div class="field"><label>Prodata item code (optional)</label><input name="prodata_code" value="${esc(p.prodata_code)}"></div>
     ${id ? `<div class="field row"><input type="checkbox" name="active" id="act" ${p.active ? 'checked' : ''}><label for="act">Active</label></div>` : ''}
     <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save product</button></div></form>`,
@@ -682,12 +722,18 @@ function productDialog(id) {
       toast('Product saved');
     });
   pform.querySelector('[data-scan]').onclick = async () => { const c = await scanCode(); if (c) pform.barcode.value = c; };
+  const perLabel = () => {
+    const m = state.products.find(x => x.sku.toLowerCase() === pform.material_sku.value.trim().toLowerCase());
+    $('#perlbl').textContent = `${m ? esc(m.unit) : 'Material'} per 1,000 ${pform.unit.value || 'pcs'}`;
+  };
+  ['input', 'change'].forEach(ev => { pform.material_sku.addEventListener(ev, perLabel); pform.unit.addEventListener(ev, perLabel); });
+  perLabel();
 }
 function importDialog(kind) {
   const isProducts = kind === 'products';
   openDialog(`<form><h2>${isProducts ? 'Import products' : 'Import opening stock'}</h2>
     <p class="muted">${isProducts
-      ? 'A CSV file with a header row. Required columns: <code>sku</code>, <code>name</code>. Optional: <code>category</code>, <code>spec</code>, <code>unit</code>, <code>min_stock</code>, <code>unit_cost</code>, <code>barcode</code>, <code>prodata_code</code>. Products with an existing SKU are updated.'
+      ? 'A CSV file with a header row. Required columns: <code>sku</code>, <code>name</code>. Optional: <code>category</code>, <code>spec</code>, <code>unit</code>, <code>min_stock</code>, <code>unit_cost</code>, <code>barcode</code>, <code>prodata_code</code>, <code>material_sku</code> and <code>material_per_1000</code> (the raw material it is made from, and how much per 1,000). Products with an existing SKU are updated.'
       : 'A CSV file with a header row and the columns <code>sku</code>, <code>location</code>, <code>qty</code>, and optionally <code>lot</code>. New locations are created. Use this once, when going live.'}</p>
     <div class="field"><label>CSV file</label><input type="file" name="file" accept=".csv,text/csv" required></div>
     <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Import</button></div></form>`,

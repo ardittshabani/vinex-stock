@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS products(
     unit_cost REAL,
     prodata_code TEXT,
     barcode TEXT,
+    material_id INTEGER REFERENCES products(id),
+    material_per_1000 REAL,
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -101,7 +103,9 @@ def init_db():
     db.executescript(SCHEMA)
     # upgrade databases created by an earlier version
     for table, column, ddl in (("products", "barcode", "ALTER TABLE products ADD COLUMN barcode TEXT"),
-                               ("movements", "reversal_of", "ALTER TABLE movements ADD COLUMN reversal_of INTEGER")):
+                               ("movements", "reversal_of", "ALTER TABLE movements ADD COLUMN reversal_of INTEGER"),
+                               ("products", "material_id", "ALTER TABLE products ADD COLUMN material_id INTEGER REFERENCES products(id)"),
+                               ("products", "material_per_1000", "ALTER TABLE products ADD COLUMN material_per_1000 REAL")):
         if column not in {r["name"] for r in db.execute(f"PRAGMA table_info({table})")}:
             db.execute(ddl)
     db.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_products_barcode ON products(barcode) WHERE barcode IS NOT NULL")
@@ -259,6 +263,28 @@ def product_fields(payload):
     }
 
 
+def set_material(db, pid, payload):
+    """Link a product to the raw material it is made from (by SKU), with the amount used per 1,000 units.
+    Only touches the link when the payload has the material_sku field, so older clients and CSVs keep it."""
+    if "material_sku" not in payload:
+        return
+    sku = text(payload, "material_sku")
+    if not sku:
+        db.execute("UPDATE products SET material_id=NULL, material_per_1000=NULL WHERE id=?", (pid,))
+        return
+    m = db.execute("SELECT id FROM products WHERE lower(sku)=lower(?)", (sku,)).fetchone()
+    if not m:
+        raise ApiError(f"Raw material '{sku}' is not a product. Add it as a product first.")
+    if m["id"] == pid:
+        raise ApiError("A product can't be made from itself")
+    if db.execute("SELECT 1 FROM products WHERE id=? AND material_id=?", (m["id"], pid)).fetchone():
+        raise ApiError(f"'{sku}' is itself made from this product")
+    per = num(payload.get("material_per_1000"), "Amount per 1,000", 0)
+    if per <= 0:
+        raise ApiError("Amount of material per 1,000 must be more than 0")
+    db.execute("UPDATE products SET material_id=?, material_per_1000=? WHERE id=?", (m["id"], per, pid))
+
+
 def duplicate_message(e, f):
     return f"Barcode '{f['barcode']}' is already used by another product" if "barcode" in str(e).lower() else f"SKU '{f['sku']}' already exists"
 
@@ -266,15 +292,23 @@ def duplicate_message(e, f):
 @app.post("/api/products")
 def create_product():
     db = get_db()
-    f = product_fields(request.get_json(force=True) or {})
+    payload = request.get_json(force=True) or {}
+    f = product_fields(payload)
+    db.execute("BEGIN IMMEDIATE")
     try:
         cur = db.execute(
             """INSERT INTO products(sku,name,category,spec,unit,min_stock,unit_cost,prodata_code,barcode)
                VALUES (:sku,:name,:category,:spec,:unit,:min_stock,:unit_cost,:prodata_code,:barcode)""",
             f,
         )
+        set_material(db, cur.lastrowid, payload)
+        db.execute("COMMIT")
     except sqlite3.IntegrityError as e:
+        db.execute("ROLLBACK")
         raise ApiError(duplicate_message(e, f), 409)
+    except Exception:
+        db.execute("ROLLBACK")
+        raise
     return jsonify(id=cur.lastrowid), 201
 
 
@@ -285,6 +319,7 @@ def update_product(pid):
     f = product_fields(payload)
     f["id"] = pid
     f["active"] = 1 if payload.get("active", True) else 0
+    db.execute("BEGIN IMMEDIATE")
     try:
         cur = db.execute(
             """UPDATE products SET sku=:sku,name=:name,category=:category,spec=:spec,unit=:unit,
@@ -292,10 +327,16 @@ def update_product(pid):
                WHERE id=:id""",
             f,
         )
+        if cur.rowcount == 0:
+            raise ApiError("Product not found", 404)
+        set_material(db, pid, payload)
+        db.execute("COMMIT")
     except sqlite3.IntegrityError as e:
+        db.execute("ROLLBACK")
         raise ApiError(duplicate_message(e, f), 409)
-    if cur.rowcount == 0:
-        raise ApiError("Product not found", 404)
+    except Exception:
+        db.execute("ROLLBACK")
+        raise
     return jsonify(ok=True)
 
 
@@ -614,16 +655,18 @@ def read_csv(payload):
 
 @app.post("/api/import/products")
 def import_products():
-    """Columns: sku, name, category, spec, unit, min_stock, unit_cost, prodata_code. Existing SKUs are updated."""
+    """Columns: sku, name, category, spec, unit, min_stock, unit_cost, barcode, prodata_code,
+    material_sku, material_per_1000. Existing SKUs are updated."""
     db = get_db()
     reader = read_csv(request.get_json(force=True))
     if "sku" not in reader.fieldnames or "name" not in reader.fieldnames:
         raise ApiError("CSV needs at least the columns: sku, name")
     created = updated = 0
     errors = []
+    rows = list(reader)
     db.execute("BEGIN IMMEDIATE")
     try:
-        for i, row in enumerate(reader, start=2):
+        for i, row in enumerate(rows, start=2):
             try:
                 f = product_fields(row)
                 exists = db.execute("SELECT id FROM products WHERE sku=?", (f["sku"],)).fetchone()
@@ -639,6 +682,13 @@ def import_products():
                 errors.append(f"Row {i}: {e.message}")
             except sqlite3.IntegrityError as e:
                 errors.append(f"Row {i}: {duplicate_message(e, f)}")
+        if not errors and "material_sku" in reader.fieldnames:
+            for i, row in enumerate(rows, start=2):
+                try:
+                    pid = db.execute("SELECT id FROM products WHERE sku=?", (text(row, "sku"),)).fetchone()["id"]
+                    set_material(db, pid, row)
+                except ApiError as e:
+                    errors.append(f"Row {i}: {e.message}")
         db.execute("COMMIT" if not errors else "ROLLBACK")
     except Exception:
         db.execute("ROLLBACK")

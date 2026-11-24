@@ -120,6 +120,7 @@ def compute(db, stock, lead_days=14, window=90, today=None):
             "consumption_value": total * cost if cost else 0,
             "value_on_hand": on_hand * cost if cost and on_hand > 0 else 0,
             "last_issue": max((e["d"] for e in ev), default=None),
+            "material_id": s.get("material_id"), "material_per_1000": s.get("material_per_1000"),
         })
     _classify_abc(items)
 
@@ -163,6 +164,8 @@ def compute(db, stock, lead_days=14, window=90, today=None):
                               "reason": f"Stocktake removed {pct:.1f}% of the stock"})
     anomalies.sort(key=lambda a: (a["date"], a["id"]), reverse=True)
 
+    materials = material_requirements(items, lead_days)
+
     rank = {"order_now": 0, "watch": 1, "ok": 2, "no_demand": 3}
     items.sort(key=lambda i: (rank[i["status"]], i["cover_days"] if i["cover_days"] is not None else 10 ** 9, i["sku"]))
     covers = [i["cover_days"] for i in items if i["cover_days"] is not None]
@@ -175,7 +178,56 @@ def compute(db, stock, lead_days=14, window=90, today=None):
         "anomalies": len(anomalies),
         "limited_history": sum(1 for i in items if i["limited"]),
         "products": len(items),
+        "materials_short": sum(1 for m in materials if m["status"] == "order_now"),
     }
     return {"params": {"lead_days": lead_days, "window": window, "service_level": 95,
                        "order_cycle_days": ORDER_CYCLE_DAYS, "slow_days": SLOW_DAYS},
-            "summary": summary, "items": items, "slow": slow, "anomalies": anomalies[:15]}
+            "summary": summary, "items": items, "materials": materials, "slow": slow, "anomalies": anomalies[:15]}
+
+
+def material_requirements(items, lead_days):
+    """Raw material needed for the finished goods made from it.
+
+    For each raw material: the amount needed to make what finished goods are short of right now
+    (their suggested order quantity, i.e. what to produce), plus the amount the finished-goods
+    forecast will use per day. Compared with material on hand and the material's supplier lead time.
+    """
+    by_id = {i["id"]: i for i in items}
+    groups = {}
+    for i in items:
+        if i["material_id"] and i["material_per_1000"] and i["material_id"] in by_id:
+            groups.setdefault(i["material_id"], []).append(i)
+    out = []
+    for mid, products in groups.items():
+        m = by_id[mid]
+        per_day = now = 0
+        parts = []
+        for p in products:
+            f = p["material_per_1000"] / 1000
+            daily = (p["forecast_30d"] / 30) if p["forecast_30d"] is not None else p["avg_daily"]
+            per_day += daily * f
+            now += p["order_qty"] * f
+            parts.append({"id": p["id"], "sku": p["sku"], "name": p["name"], "unit": p["unit"],
+                          "per_1000": p["material_per_1000"], "make_now": p["order_qty"],
+                          "need_now": round(p["order_qty"] * f, 1), "forecast_30d": round(daily * 30),
+                          "need_30d": round(daily * 30 * f, 1)})
+        on_hand = max(m["on_hand"], 0)
+        needed_by_arrival = now + per_day * lead_days
+        if per_day == 0 and now == 0:
+            status, order = "no_demand", 0
+        elif on_hand < needed_by_arrival:
+            status, order = "order_now", round_up(needed_by_arrival + per_day * ORDER_CYCLE_DAYS - on_hand)
+        elif on_hand < needed_by_arrival + per_day * ORDER_CYCLE_DAYS:
+            status, order = "watch", 0
+        else:
+            status, order = "ok", 0
+        left_after_now = on_hand - now
+        cover = None if per_day == 0 else max(left_after_now, 0) / per_day
+        parts.sort(key=lambda r: -(r["need_now"] + r["need_30d"]))
+        out.append({"id": mid, "sku": m["sku"], "name": m["name"], "unit": m["unit"], "on_hand": m["on_hand"],
+                    "need_now": round(now, 1), "need_per_day": round(per_day, 2), "need_30d": round(per_day * 30, 1),
+                    "need_lead_time": round(needed_by_arrival, 1), "cover_days": None if cover is None else round(cover),
+                    "status": status, "order_qty": order, "products": parts})
+    rank = {"order_now": 0, "watch": 1, "ok": 2, "no_demand": 3}
+    out.sort(key=lambda r: (rank[r["status"]], r["cover_days"] if r["cover_days"] is not None else 10 ** 9, r["sku"]))
+    return out

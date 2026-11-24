@@ -1,42 +1,76 @@
-# Vinex Fasteners – Stock Management (prototype)
+# Vinex Fasteners – Stock Management
 
-Desktop web app for tracking stock of fasteners and raw material. Runs on one Windows PC; open it in any browser.
+Web app for tracking stock of fasteners and raw material. Use it on a PC, or host it (Railway) and open it from a phone.
 
-## Run it
+## Run it on a Windows PC
 
-1. Install Python 3.10+ (python.org) – tick "Add Python to PATH".
-2. Double-click `run.bat` (first run installs Flask, then opens http://localhost:5000).
-3. Optional: `python seed_demo.py` loads sample products and movements. Delete `stock.db` to start clean.
+1. Install Python 3.10+ from python.org (tick "Add Python to PATH").
+2. Double-click `run.bat`. It installs Flask, opens http://localhost:5000 and keeps a console window open.
+3. **First sign-in:** on the very first start the console prints a box with the admin username (`admin`) and a random password. Sign in with it, then use **Password** (top right) to set your own.
+   To choose the password yourself, set `VINEX_ADMIN_PASSWORD` before the first start (`set VINEX_ADMIN_PASSWORD=your-password` in the console, then `python app.py`).
+4. Optional: `python seed_demo.py` loads sample products and movements. Delete `stock.db` to start clean.
+
+Other devices on the same Wi-Fi/LAN: start with `set VINEX_HOST=0.0.0.0` and open `http://<this-PC-address>:5000`. Everyone needs a login, but the connection is plain HTTP – fine inside the factory network, not over the internet.
+
+## Run it on Railway
+
+1. Connect the GitHub repo to a Railway service. The `Procfile` starts it with gunicorn.
+2. **Add a Volume** to the service and mount it at `/data`. Without a volume the database is wiped on every redeploy.
+3. Set these **Variables**:
+
+   | Variable | Value |
+   |---|---|
+   | `VINEX_STOCK_DB` | `/data/stock.db` |
+   | `VINEX_ADMIN_PASSWORD` | a strong password for the first admin (used only when there are no users yet) |
+   | `VINEX_ADMIN_USER` | optional, default `admin` |
+
+   If you don't set `VINEX_ADMIN_PASSWORD`, a random one is printed once in the deploy log.
+4. Keep **one instance** (SQLite is a single file).
+5. Optional: set the health-check path to `/healthz`.
+
+Locked out? Set `VINEX_ADMIN_PASSWORD` to a new password and `VINEX_ADMIN_RESET=1`, redeploy, sign in, then **remove `VINEX_ADMIN_RESET`**.
+
+## Users and roles
+
+Admins manage users in the **Users** tab.
+
+| Role | Can do |
+|---|---|
+| `admin` | everything: products, locations, CSV imports, users |
+| `staff` | view everything, book movements (receive / issue / transfer / stocktake) |
+| `viewer` | read-only |
+
+Every movement records the signed-in user. Passwords are hashed; 5 wrong attempts lock that user from that address for 5 minutes; changing or resetting a password signs out that user's other sessions; sessions last 7 days.
 
 ## What it does
 
-- **Products** – SKU, name, category, spec (standard/class/finish), unit, minimum stock, unit cost, optional Prodata code.
+- **Products** – SKU, name, category, spec, unit, minimum stock, unit cost, optional Prodata code.
 - **Locations** – warehouse zones, raw-material store, packing area, racks/bins.
-- **Movements** – Receive, Issue, Transfer between locations, Stocktake (enter the counted quantity; the app books the difference). Lot / heat number and reference (order, work order, delivery note) on every movement.
-- **Safety checks** – cannot issue more than is on hand (per location, and per lot if a lot is given); transfers are all-or-nothing; two people saving at once can't both take the last box.
-- **Dashboard** – low / out of stock, stock value, recent movements. **Stock** view with per-location and per-lot breakdown.
-- **CSV** – import products, import opening stock (for go-live), export stock and movements (opens in Excel).
+- **Movements** – Receive, Issue, Transfer, Stocktake (enter the counted quantity; the app books the difference), with lot / heat number and reference.
+- **Safety checks** – cannot issue more than is on hand (per location and per lot); transfers are all-or-nothing; two people saving at once can't both take the last box.
+- **Dashboard** – low / out of stock, stock value, recent movements. **Stock** view with per-location and per-lot detail.
+- **CSV** – import products, import opening stock (go-live), export stock and movements.
 
-Stock is never edited directly: every quantity is the sum of an append-only movement ledger, so each number can be traced to who did what and when.
+Quantities are never edited directly: each is the sum of an append-only movement ledger, so every number traces back to who did what and when.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `app.py` | Flask server, API, SQLite database (`stock.db`, created on first run) |
-| `static/index.html` | The whole UI (no build step) |
+| `app.py` | Flask server, API, SQLite database |
+| `auth.py` | Login, roles, user management |
+| `static/index.html` | The whole UI (no build step), works on phone screens |
 | `prodata.py` | Placeholder for the Prodata integration |
 | `seed_demo.py` | Demo data |
 | `test_app.py` | `python -m unittest test_app -v` |
+| `Procfile` | Start command for Railway |
 
 ## Prodata
 
-Not connected yet – the app works fully without it. Movements already carry a `prodata_synced` flag and products a `prodata_code`, so the sync can be added in `prodata.py` once the Prodata API documentation is available (base URL, authentication, item and stock-document endpoints).
+Not connected yet; the app works fully without it. Movements carry a `prodata_synced` flag and products a `prodata_code`, so the sync can be added in `prodata.py` once the Prodata API documentation is available. Note: a cloud-hosted app can only reach Prodata if Prodata's API is reachable from the internet.
 
-## Before real use
+## Good to know
 
-- **Back up `stock.db`** regularly (copy the file while the app is stopped, or use SQLite's backup).
-- **No user accounts.** By default the app listens on this PC only. Setting `VINEX_HOST=0.0.0.0` lets other PCs open it, but anyone on the network could change stock – add login first.
-- The "Operator" name in the header is a typed label, not authentication.
+- **Back up `stock.db`** (on Railway: the volume's file; also export CSVs regularly).
 - Prices are shown in €.
-- It runs on Flask's built-in server, fine for a single desk; for several users move to a production server and a proper database (the schema is plain SQL and ports to MSSQL).
+- Cookies are marked secure automatically on Railway; for other HTTPS hosts set `VINEX_COOKIE_SECURE=1` and `VINEX_BEHIND_PROXY=1`.

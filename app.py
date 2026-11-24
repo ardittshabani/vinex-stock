@@ -11,6 +11,7 @@ import uuid
 
 from flask import Flask, Response, g, jsonify, request, send_from_directory
 
+import auth
 import prodata
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -51,6 +52,18 @@ CREATE TABLE IF NOT EXISTS movements(
 );
 CREATE INDEX IF NOT EXISTS ix_mov_product ON movements(product_id, location_id);
 CREATE INDEX IF NOT EXISTS ix_mov_created ON movements(created_at);
+CREATE TABLE IF NOT EXISTS users(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('admin','staff','viewer')),
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE TABLE IF NOT EXISTS settings(
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 app = Flask(__name__, static_folder=os.path.join(BASE, "static"), static_url_path="/static")
@@ -78,6 +91,7 @@ def close_db(_exc):
 
 
 def init_db():
+    os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
     db = connect()
     db.execute("PRAGMA journal_mode=WAL")
     db.executescript(SCHEMA)
@@ -365,7 +379,8 @@ def post_movement():
     kind = text(d, "kind", required=True).upper()
     if kind not in ("IN", "OUT", "TRANSFER", "ADJUST"):
         raise ApiError("Unknown movement type")
-    lot, reference, note, operator = (text(d, k) for k in ("lot", "reference", "note", "operator"))
+    lot, reference, note = (text(d, k) for k in ("lot", "reference", "note"))
+    operator = g.user["username"]  # taken from the login, not from the request
     pid, lid = d.get("product_id"), d.get("location_id")
 
     db.execute("BEGIN IMMEDIATE")  # serialise writers so two people can't both take the last box
@@ -490,7 +505,7 @@ def import_opening_stock():
     """Columns: sku, location, qty, lot (optional). Books each row as an IN movement with reference OPENING."""
     db = get_db()
     d = request.get_json(force=True)
-    operator = text(d or {}, "operator")
+    operator = g.user["username"]
     reader = read_csv(d)
     if not {"sku", "location", "qty"} <= set(reader.fieldnames):
         raise ApiError("CSV needs the columns: sku, location, qty (lot is optional)")
@@ -539,9 +554,16 @@ def prodata_sync():
     return jsonify(result)
 
 
+@app.get("/healthz")
+def healthz():
+    get_db().execute("SELECT 1")
+    return "ok"
+
+
 init_db()
+auth.init(app, get_db, connect, ApiError)  # login, roles, user management; guards every /api route
 
 if __name__ == "__main__":
-    # 127.0.0.1 = this PC only. Set VINEX_HOST=0.0.0.0 to let other PCs on the LAN open it
-    # (add login first if you do - this prototype has no user accounts).
-    app.run(host=os.environ.get("VINEX_HOST", "127.0.0.1"), port=int(os.environ.get("VINEX_PORT", "5000")))
+    # Local use. 127.0.0.1 = this PC only; set VINEX_HOST=0.0.0.0 to let other PCs/phones on the LAN open it.
+    # Hosted use (Railway etc.) runs `gunicorn app:app` - see Procfile.
+    app.run(host=os.environ.get("VINEX_HOST", "127.0.0.1"), port=int(os.environ.get("PORT") or os.environ.get("VINEX_PORT", "5000")))

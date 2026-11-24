@@ -70,18 +70,44 @@
   .empty { padding:40px; text-align:center; color:var(--muted); }
   .locs span { display:inline-block; margin-right:12px; white-space:nowrap; }
   code { background:#eef1f5; padding:1px 5px; border-radius:4px; font-size:12px; }
+  [hidden] { display:none !important; }
+  .operator { gap:10px; }
+  .rolechip { background:rgba(255,255,255,.18); border-radius:99px; padding:1px 8px; font-size:12px; margin-left:4px; }
+  .hbtn { background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.3); color:#fff; border-radius:6px; padding:5px 10px; font:inherit; font-size:13px; cursor:pointer; }
+  .hbtn:hover { background:rgba(255,255,255,.26); }
+  #login { position:fixed; inset:0; z-index:50; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:16px; }
+  .logincard { background:#fff; border:1px solid var(--line); border-radius:14px; padding:28px; width:360px; max-width:100%; box-shadow:0 10px 40px rgba(20,30,45,.12); }
+  .logincard h1 { margin:0 0 2px; font-size:20px; color:var(--accent); }
+  .logincard p { margin:0 0 18px; }
   @media (max-width:1000px) { .cards { grid-template-columns:repeat(2,1fr);} .grid2 { grid-template-columns:1fr; } }
+  @media (max-width:700px) {
+    header { height:auto; flex-wrap:wrap; padding:8px 12px; gap:6px 12px; }
+    header h1 { font-size:15px; }
+    nav { order:3; width:100%; flex:none; overflow-x:auto; }
+    nav button { height:40px; padding:0 12px; white-space:nowrap; }
+    .operator { margin-left:auto; font-size:12px; }
+    main { padding:12px; }
+    .cards { gap:10px; } .stat .v { font-size:20px; }
+    .toolbar { gap:8px; } .toolbar .spacer { display:none; } .toolbar h2 { width:100%; }
+    input[type=search], .toolbar select { width:100%; }
+    input, select, textarea { font-size:16px; } /* stops iPhones zooming into fields */
+    button.btn, a.btn { padding:10px 14px; }
+    dialog { width:100vw; max-width:100vw; margin:auto 0 0 0; border-radius:14px 14px 0 0; max-height:92vh; }
+    .two { grid-template-columns:1fr; }
+    th, td { padding:8px; }
+  }
 </style>
 </head>
 <body>
 <header>
   <h1>VINEX Fasteners &middot; Stock</h1>
   <nav id="nav"></nav>
-  <div class="operator"><label for="operator">Operator</label><input id="operator" placeholder="Your name" autocomplete="off"></div>
+  <div class="operator" id="whoami"></div>
 </header>
 <main id="view"></main>
 <dialog id="dlg"></dialog>
 <div id="toast"></div>
+<div id="login" hidden></div>
 
 <script>
 const $ = (s, el = document) => el.querySelector(s);
@@ -96,21 +122,47 @@ async function api(path, opts = {}) {
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && path !== '/login') showLogin();
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
 }
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600); }
 
-const state = { tab: 'dashboard', products: [], locations: [], stock: [], stockFilter: '', lowOnly: false, movQ: '', movKind: '' };
-const TABS = [['dashboard','Dashboard'],['stock','Stock'],['products','Products'],['movements','Movements'],['locations','Locations']];
+const state = { tab: 'dashboard', user: null, users: [], products: [], locations: [], stock: [], stockFilter: '', lowOnly: false, movQ: '', movKind: '' };
+const TABS = [['dashboard','Dashboard'],['stock','Stock'],['products','Products'],['movements','Movements'],['locations','Locations'],['users','Users']];
+const isAdmin = () => state.user?.role === 'admin';
+const canMove = () => ['admin', 'staff'].includes(state.user?.role);
 const KIND_LABEL = { IN:'Received', OUT:'Issued', ADJUST:'Stocktake adj.', TRANSFER_IN:'Transfer in', TRANSFER_OUT:'Transfer out' };
 
-const operatorInput = $('#operator');
-operatorInput.value = localStorage.getItem('operator') || '';
-operatorInput.addEventListener('input', () => localStorage.setItem('operator', operatorInput.value));
+function renderWho() {
+  const u = state.user;
+  $('#whoami').innerHTML = u ? `<span>${esc(u.username)} <span class="rolechip">${esc(u.role)}</span></span><button class="hbtn" id="chpw">Password</button><button class="hbtn" id="logout">Sign out</button>` : '';
+  if (!u) return;
+  $('#chpw').onclick = passwordDialog;
+  $('#logout').onclick = async () => { try { await api('/logout', { method: 'POST', body: {} }); } catch {} showLogin(); };
+}
+function showLogin(msg) {
+  state.user = null; renderWho();
+  $('#view').innerHTML = ''; if ($('#dlg').open) $('#dlg').close();
+  const el = $('#login'); el.hidden = false;
+  el.innerHTML = `<form class="logincard"><h1>VINEX Fasteners</h1><p class="muted">Stock management &middot; sign in</p>
+    <div class="err" ${msg ? '' : 'hidden'}>${esc(msg || '')}</div>
+    <div class="field"><label>Username</label><input name="username" autocomplete="username" autocapitalize="none" required autofocus></div>
+    <div class="field"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div>
+    <button class="btn primary" style="width:100%;margin-top:6px">Sign in</button></form>`;
+  const form = $('form', el);
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const err = $('.err', form); err.hidden = true;
+    try {
+      state.user = await api('/login', { method: 'POST', body: Object.fromEntries(new FormData(form)) });
+      el.hidden = true; el.innerHTML = ''; renderWho(); state.tab = 'dashboard'; show();
+    } catch (ex) { err.textContent = ex.message; err.hidden = false; }
+  };
+}
 
 function renderNav() {
-  $('#nav').innerHTML = TABS.map(([k, l]) => `<button data-tab="${k}" class="${state.tab === k ? 'active' : ''}">${l}</button>`).join('');
+  $('#nav').innerHTML = TABS.filter(([k]) => k !== 'users' || isAdmin()).map(([k, l]) => `<button data-tab="${k}" class="${state.tab === k ? 'active' : ''}">${l}</button>`).join('');
   $('#nav').querySelectorAll('button').forEach(b => b.onclick = () => { state.tab = b.dataset.tab; show(); });
 }
 
@@ -153,8 +205,8 @@ async function viewDashboard() {
   const d = await api('/dashboard');
   $('#view').innerHTML = `
     <div class="toolbar"><h2 style="margin:0">Dashboard</h2><span class="spacer"></span>
-      <button class="btn primary" onclick="movementDialog('IN')">+ Receive stock</button>
-      <button class="btn" onclick="movementDialog('OUT')">Issue stock</button></div>
+      ${canMove() ? `<button class="btn primary" onclick="movementDialog('IN')">+ Receive stock</button>
+      <button class="btn" onclick="movementDialog('OUT')">Issue stock</button>` : ''}</div>
     <div class="cards">
       <div class="card stat"><div class="v">${d.products}</div><div class="l">Active products</div></div>
       <div class="card stat ${d.low_count ? 'warn' : ''}"><div class="v">${d.low_count}</div><div class="l">Low stock</div></div>
@@ -181,17 +233,17 @@ function stockTable() {
     <td class="num"><b>${fmt(s.total)}</b> <span class="muted small">${esc(s.unit)}</span></td><td class="num muted">${s.min_stock ? fmt(s.min_stock) : ''}</td>
     <td>${statusBadge(s.status)}</td>
     <td class="locs small">${s.locations.map(l => `<span>${esc(l.location)}: <b>${fmt(l.qty)}</b></span>`).join('') || '<span class="muted">-</span>'}</td>
-    <td style="white-space:nowrap"><button class="link" onclick="lotsDialog(${s.id})">Lots</button> &middot; <button class="link" onclick="movementDialog('IN',${s.id})">Receive</button> &middot; <button class="link" onclick="movementDialog('OUT',${s.id})">Issue</button></td></tr>`).join('')}</tbody></table>`;
+    <td style="white-space:nowrap"><button class="link" onclick="lotsDialog(${s.id})">Lots</button>${canMove() ? ` &middot; <button class="link" onclick="movementDialog('IN',${s.id})">Receive</button> &middot; <button class="link" onclick="movementDialog('OUT',${s.id})">Issue</button>` : ''}</td></tr>`).join('')}</tbody></table>`;
 }
 async function viewStock() {
   $('#view').innerHTML = `
     <div class="toolbar"><h2 style="margin:0">Stock on hand</h2><span class="spacer"></span>
       <input type="search" id="sf" placeholder="Search SKU, name, spec…" value="${esc(state.stockFilter)}">
       <label><input type="checkbox" id="lowonly" ${state.lowOnly ? 'checked' : ''}> Low / out only</label>
-      <button class="btn primary" onclick="movementDialog('IN')">Receive</button>
+      ${canMove() ? `<button class="btn primary" onclick="movementDialog('IN')">Receive</button>
       <button class="btn" onclick="movementDialog('OUT')">Issue</button>
       <button class="btn" onclick="movementDialog('TRANSFER')">Transfer</button>
-      <button class="btn" onclick="movementDialog('ADJUST')">Stocktake</button>
+      <button class="btn" onclick="movementDialog('ADJUST')">Stocktake</button>` : ''}
       <a class="btn" href="/api/export/stock.csv">Export CSV</a></div>
     <div class="tablewrap" id="stocktable">${stockTable()}</div>`;
   $('#sf').oninput = e => { state.stockFilter = e.target.value; $('#stocktable').innerHTML = stockTable(); };
@@ -235,7 +287,7 @@ function movementDialog(kind, presetPid) {
   </form>`, async (v, f) => {
     const p = findProduct(v.product);
     if (!p) throw new Error('Pick a product from the list');
-    const body = { kind, product_id: p.id, location_id: +v.location_id, lot: v.lot, reference: v.reference, note: v.note, operator: operatorInput.value };
+    const body = { kind, product_id: p.id, location_id: +v.location_id, lot: v.lot, reference: v.reference, note: v.note };
     if (kind === 'ADJUST') body.counted = v.counted; else body.qty = v.qty;
     if (kind === 'TRANSFER') body.to_location_id = +v.to_location_id;
     const r = await api('/movements', { method: 'POST', body });
@@ -263,13 +315,13 @@ function findProduct(val) {
 async function viewProducts() {
   $('#view').innerHTML = `
     <div class="toolbar"><h2 style="margin:0">Products</h2><span class="spacer"></span>
-      <button class="btn" onclick="importDialog('products')">Import products (CSV)</button>
+      ${isAdmin() ? `<button class="btn" onclick="importDialog('products')">Import products (CSV)</button>
       <button class="btn" onclick="importDialog('opening-stock')">Import opening stock (CSV)</button>
-      <button class="btn primary" onclick="productDialog()">+ New product</button></div>
+      <button class="btn primary" onclick="productDialog()">+ New product</button>` : ''}</div>
     <div class="tablewrap">${state.products.length ? `<table><thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Spec</th><th>Unit</th><th class="num">Min stock</th><th class="num">Unit cost</th><th>Prodata code</th><th></th></tr></thead><tbody>${state.products.map(p => `
       <tr><td><b>${esc(p.sku)}</b> ${p.active ? '' : '<span class="badge off">inactive</span>'}</td><td>${esc(p.name)}</td><td>${esc(p.category)}</td><td class="small">${esc(p.spec)}</td><td>${esc(p.unit)}</td>
       <td class="num">${fmt(p.min_stock)}</td><td class="num">${p.unit_cost != null ? fmt(p.unit_cost) : ''}</td><td>${esc(p.prodata_code)}</td>
-      <td><button class="link" onclick="productDialog(${p.id})">Edit</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">No products yet. Add one or import a CSV.</div>'}</div>`;
+      <td>${isAdmin() ? `<button class="link" onclick="productDialog(${p.id})">Edit</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No products yet. Add one or import a CSV.</div>'}</div>`;
 }
 function productDialog(id) {
   const p = state.products.find(x => x.id === id) || { unit: 'pcs', min_stock: 0, active: 1 };
@@ -300,7 +352,7 @@ function importDialog(kind) {
     <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Import</button></div></form>`,
     async (v, f) => {
       const csv = await f.file.files[0].text();
-      const r = await api('/import/' + kind, { method: 'POST', body: { csv, operator: operatorInput.value } });
+      const r = await api('/import/' + kind, { method: 'POST', body: { csv } });
       toast(isProducts ? `Imported: ${r.created} new, ${r.updated} updated` : `Imported ${r.imported} rows`);
     });
 }
@@ -327,9 +379,9 @@ async function viewMovements() {
 /* ---------- locations ---------- */
 async function viewLocations() {
   $('#view').innerHTML = `
-    <div class="toolbar"><h2 style="margin:0">Locations</h2><span class="spacer"></span><button class="btn primary" onclick="locationDialog()">+ New location</button></div>
+    <div class="toolbar"><h2 style="margin:0">Locations</h2><span class="spacer"></span>${isAdmin() ? `<button class="btn primary" onclick="locationDialog()">+ New location</button>` : ''}</div>
     <div class="tablewrap"><table><thead><tr><th>Name</th><th>Status</th><th></th></tr></thead><tbody>${state.locations.map(l => `
-      <tr><td><b>${esc(l.name)}</b></td><td>${l.active ? '<span class="badge ok">Active</span>' : '<span class="badge off">Inactive</span>'}</td><td><button class="link" onclick="locationDialog(${l.id})">Edit</button></td></tr>`).join('')}</tbody></table></div>
+      <tr><td><b>${esc(l.name)}</b></td><td>${l.active ? '<span class="badge ok">Active</span>' : '<span class="badge off">Inactive</span>'}</td><td>${isAdmin() ? `<button class="link" onclick="locationDialog(${l.id})">Edit</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
     <p class="muted small">Examples: warehouse zones, raw-material store, packing area, a rack or bin code. Stock can be moved between locations with Transfer.</p>`;
 }
 function locationDialog(id) {
@@ -345,8 +397,54 @@ function locationDialog(id) {
     });
 }
 
-const VIEWS = { dashboard: viewDashboard, stock: viewStock, products: viewProducts, movements: viewMovements, locations: viewLocations };
-show();
+/* ---------- users (admin) & own password ---------- */
+async function viewUsers() {
+  state.users = await api('/users');
+  $('#view').innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">Users</h2><span class="spacer"></span><button class="btn primary" onclick="userDialog()">+ New user</button></div>
+    <div class="tablewrap"><table><thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody>${state.users.map(u => `
+      <tr><td><b>${esc(u.username)}</b>${u.id === state.user.id ? ' <span class="muted small">(you)</span>' : ''}</td><td>${esc(u.role)}</td>
+      <td>${u.active ? '<span class="badge ok">Active</span>' : '<span class="badge off">Disabled</span>'}</td><td class="muted small">${esc(u.created_at)}</td>
+      <td><button class="link" onclick="userDialog(${u.id})">Edit</button></td></tr>`).join('')}</tbody></table></div>
+    <p class="muted small"><b>admin</b> – everything, including products, locations, imports and users. <b>staff</b> – view everything and book stock movements. <b>viewer</b> – read only.</p>`;
+}
+function userDialog(id) {
+  const u = state.users.find(x => x.id === id) || { role: 'staff', active: 1 };
+  openDialog(`<form><h2>${id ? 'Edit user' : 'New user'}</h2>
+    <div class="field"><label>Username</label><input name="username" required minlength="3" maxlength="32" autocapitalize="none" value="${esc(u.username)}" ${id ? 'disabled' : ''}></div>
+    <div class="field"><label>Role</label><select name="role">${['admin', 'staff', 'viewer'].map(r => `<option ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+    <div class="field"><label>${id ? 'New password (leave empty to keep the current one)' : 'Password (at least 8 characters)'}</label><input name="password" type="password" autocomplete="new-password" minlength="8" ${id ? '' : 'required'}></div>
+    ${id ? `<div class="field row"><input type="checkbox" name="active" id="uact" ${u.active ? 'checked' : ''}><label for="uact">Active (untick to block sign-in)</label></div>` : ''}
+    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save</button></div></form>`,
+    async (v, f) => {
+      if (id) {
+        const body = { role: v.role, active: f.active.checked }; if (v.password) body.password = v.password;
+        await api('/users/' + id, { method: 'PUT', body });
+      } else {
+        await api('/users', { method: 'POST', body: { username: v.username, role: v.role, password: v.password } });
+      }
+      toast('User saved');
+    });
+}
+function passwordDialog() {
+  openDialog(`<form><h2>Change password</h2>
+    <div class="field"><label>Current password</label><input name="current" type="password" autocomplete="current-password" required></div>
+    <div class="field"><label>New password (at least 8 characters)</label><input name="new" type="password" autocomplete="new-password" minlength="8" required></div>
+    <div class="field"><label>Repeat new password</label><input name="again" type="password" autocomplete="new-password" required></div>
+    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save</button></div></form>`,
+    async v => {
+      if (v.new !== v.again) throw new Error('The new passwords do not match');
+      await api('/me/password', { method: 'POST', body: { current: v.current, new: v.new } });
+      toast('Password changed');
+    });
+}
+
+const VIEWS = { dashboard: viewDashboard, stock: viewStock, products: viewProducts, movements: viewMovements, locations: viewLocations, users: viewUsers };
+(async function start() {
+  try { state.user = await api('/me'); }
+  catch (e) { if ($('#login').hidden) $('#view').innerHTML = `<div class="err">${esc(e.message)}</div>`; return; }
+  renderWho(); show();
+})();
 </script>
 </body>
 </html>

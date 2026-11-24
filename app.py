@@ -566,4 +566,6 @@ auth.init(app, get_db, connect, ApiError)  # login, roles, user management; guar
 if __name__ == "__main__":
     # Local use. 127.0.0.1 = this PC only; set VINEX_HOST=0.0.0.0 to let other PCs/phones on the LAN open it.
     # Hosted use (Railway etc.) runs `gunicorn app:app` - see Procfile.
-    app.run(host=os.environ.get("VINEX_HOST", "127.0.0.1"), port=int(os.environ.get("PORT") or os.environ.get("VINEX_PORT", "5000")))
+    # Hosting platforms (Railway etc.) set PORT and need the app reachable from outside the container.
+    default_host = "0.0.0.0" if os.environ.get("PORT") else "127.0.0.1"
+    app.run(host=os.environ.get("VINEX_HOST", default_host), port=int(os.environ.get("PORT") or os.environ.get("VINEX_PORT", "5000")))

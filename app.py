@@ -223,6 +223,19 @@ def index():
     return send_from_directory(app.static_folder, "index.html")
 
 
+@app.get("/sw.js")
+def service_worker():
+    # served from the root so it can control the whole app
+    resp = send_from_directory(app.static_folder, "sw.js", mimetype="text/javascript", max_age=0)
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
+@app.get("/manifest.webmanifest")
+def manifest():
+    return send_from_directory(app.static_folder, "manifest.webmanifest", mimetype="application/manifest+json", max_age=0)
+
+
 # ---------------------------------------------------------------- products
 @app.get("/api/products")
 def list_products():

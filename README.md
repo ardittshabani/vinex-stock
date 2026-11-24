@@ -70,6 +70,10 @@ Quantities are never edited directly: each is the sum of an append-only movement
 | `Procfile` | Start command for Railway |
 | `static/vendor/` | html5-qrcode (Apache-2.0) for scanning, loaded only when you tap Scan; IBM Plex Sans (OFL) |
 
+## Install as an app
+
+Open the site in Chrome or Edge and click the install icon in the address bar (or menu → *Install Vinex Stock*). It then runs in its own window with its own icon, and has shortcuts to Stock and Insights. On iPhone: Share → *Add to Home Screen*; on Android: menu → *Install app*. Stock data is never cached on the device; it always comes live from the server.
+
 ## Prodata
 
 Not connected yet; the app works fully without it. Movements carry a `prodata_synced` flag and products a `prodata_code`, so the sync can be added in `prodata.py` once the Prodata API documentation is available. Note: a cloud-hosted app can only reach Prodata if Prodata's API is reachable from the internet.

@@ -231,3 +231,114 @@ def material_requirements(items, lead_days):
     rank = {"order_now": 0, "watch": 1, "ok": 2, "no_demand": 3}
     out.sort(key=lambda r: (rank[r["status"]], r["cover_days"] if r["cover_days"] is not None else 10 ** 9, r["sku"]))
     return out
+
+
+def _month_ends(today, months):
+    """Last day of each of the previous `months - 1` months, then today."""
+    ends = []
+    first = today.replace(day=1)
+    for _ in range(months - 1):
+        last = first - timedelta(days=1)
+        ends.append(last)
+        first = last.replace(day=1)
+    return list(reversed(ends)) + [today]
+
+
+def value_and_turnover(db, products, window=90, months=12, today=None):
+    """Stock value over time (valued at today's unit cost) and inventory turnover.
+
+    Turnover = value issued in the window / average stock value in the window, scaled to a year.
+    Days of inventory = average stock value / value issued per day.
+    """
+    today = today or date.today()
+    start = today - timedelta(days=window - 1)
+    costed = {p["id"]: p for p in products if p["unit_cost"]}
+    missing_cost = sum(1 for p in products if not p["unit_cost"])
+    cat = lambda p: p["category"] or "Uncategorised"
+
+    # ---- month-end values
+    ends = _month_ends(today, months)
+    first_end = ends[0]
+    before = {r["product_id"]: r["q"] for r in db.execute(
+        "SELECT product_id, SUM(qty) AS q FROM movements WHERE date(created_at) <= ? GROUP BY product_id", (first_end.isoformat(),))}
+    deltas = db.execute(
+        """SELECT product_id, date(created_at) AS d, SUM(qty) AS q FROM movements
+           WHERE date(created_at) > ? AND date(created_at) <= ? GROUP BY product_id, d ORDER BY d""",
+        (first_end.isoformat(), today.isoformat())).fetchall()
+    bal = dict(before)
+    series, k = [], 0
+    for i, end in enumerate(ends):
+        if i:
+            while k < len(deltas) and deltas[k]["d"] <= end.isoformat():
+                bal[deltas[k]["product_id"]] = bal.get(deltas[k]["product_id"], 0) + deltas[k]["q"]
+                k += 1
+        by_cat = {}
+        for pid, q in bal.items():
+            if pid in costed and q > 0:
+                c = cat(costed[pid])
+                by_cat[c] = by_cat.get(c, 0) + q * costed[pid]["unit_cost"]
+        series.append({"date": end.isoformat(), "total": round(sum(by_cat.values()), 2),
+                       "by_category": {c: round(v, 2) for c, v in by_cat.items()}})
+
+    # ---- daily balances in the window -> average value per product
+    start_bal = {r["product_id"]: r["q"] for r in db.execute(
+        "SELECT product_id, SUM(qty) AS q FROM movements WHERE date(created_at) < ? GROUP BY product_id", (start.isoformat(),))}
+    day_moves = {}
+    for r in db.execute("""SELECT product_id, date(created_at) AS d, SUM(qty) AS q FROM movements
+                           WHERE date(created_at) >= ? GROUP BY product_id, d""", (start.isoformat(),)):
+        day_moves.setdefault(r["product_id"], {})[r["d"]] = r["q"]
+    issued = {r["product_id"]: r["q"] for r in db.execute(
+        f"""SELECT m.product_id, -SUM(m.qty) AS q FROM movements m
+            WHERE {_NOT_REVERSED} AND date(m.created_at) >= ? GROUP BY m.product_id""", (start.isoformat(),))}
+    dates = [(start + timedelta(days=i)).isoformat() for i in range(window)]
+
+    rows = []
+    for pid, p in costed.items():
+        q, total = start_bal.get(pid, 0), 0
+        moves = day_moves.get(pid, {})
+        for d in dates:
+            q += moves.get(d, 0)
+            total += max(q, 0)
+        avg_qty = total / window
+        avg_value = avg_qty * p["unit_cost"]
+        issued_value = issued.get(pid, 0) * p["unit_cost"]
+        if avg_value == 0 and issued_value == 0:
+            continue
+        rows.append({"id": pid, "sku": p["sku"], "name": p["name"], "category": cat(p),
+                     "avg_value": avg_value, "issued_value": issued_value,
+                     "value_now": max(p["total"], 0) * p["unit_cost"]})
+
+    def ratios(avg_value, issued_value):
+        turnover = issued_value / avg_value * 365 / window if avg_value > 0 else None
+        dio = avg_value / (issued_value / window) if issued_value > 0 else None
+        return (None if turnover is None else round(turnover, 1)), (None if dio is None else round(dio))
+
+    for r in rows:
+        r["turnover"], r["days"] = ratios(r["avg_value"], r["issued_value"])
+    cats = {}
+    for r in rows:
+        c = cats.setdefault(r["category"], {"category": r["category"], "avg_value": 0, "issued_value": 0, "value_now": 0, "products": 0})
+        for f in ("avg_value", "issued_value", "value_now"):
+            c[f] += r[f]
+        c["products"] += 1
+    total_avg = sum(c["avg_value"] for c in cats.values())
+    for c in cats.values():
+        c["turnover"], c["days"] = ratios(c["avg_value"], c["issued_value"])
+        c["share"] = round(c["avg_value"] / total_avg * 100, 1) if total_avg else 0
+    overall_t, overall_d = ratios(total_avg, sum(c["issued_value"] for c in cats.values()))
+
+    rnd = lambda d: {k: (round(v, 2) if isinstance(v, float) and "value" in k else v) for k, v in d.items()}
+    rows.sort(key=lambda r: -r["avg_value"])
+    cat_rows = sorted(cats.values(), key=lambda c: -c["avg_value"])
+    order = [c["category"] for c in cat_rows]
+    now_v = series[-1]["total"]
+    ago = series[-4]["total"] if len(series) >= 4 else None
+    return {
+        "params": {"window": window, "months": months},
+        "summary": {"value_now": now_v, "value_3m_ago": ago,
+                    "change_pct": round((now_v - ago) / ago * 100, 1) if ago else None,
+                    "avg_value": round(total_avg, 2), "turnover": overall_t, "days": overall_d,
+                    "missing_cost": missing_cost},
+        "months": series, "category_order": order,
+        "categories": [rnd(c) for c in cat_rows], "products": [rnd(r) for r in rows],
+    }

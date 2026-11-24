@@ -7,10 +7,10 @@ Built one at a time. Each item lands on the Insights page unless noted.
 - [x] Reorder point with safety stock (95% service level), suggested order quantity
 - [x] 30-day forecast (exponential smoothing), ABC / XYZ classes
 - [x] Slow-moving stock, unusual movements
+- [x] **Stock value over time and inventory turnover**: monthly stock value by category; turnover and days of inventory per product and category
 - [x] **Raw material forecast**: link finished products to their wire rod (kg per 1,000 pcs) and see the material needed for production now and per 30 days, how long it lasts, and what to order
 
 ## Next
-- [ ] **Stock value over time and inventory turnover**: monthly stock value by category; turnover and days of inventory per product and category
 - [ ] **Weekly report for management**: Monday summary of what to order, what ran low, unusual movements and stock value
 - [ ] **Seasonal forecast with a likely range**: Holt-Winters on weekly demand, with a prediction interval
 - [ ] **Stocktake accuracy**: count differences per product, location and person

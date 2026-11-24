@@ -221,6 +221,7 @@
     table.cards td .spark { display:inline-block; }
     table.cards td:not([data-label])::before { content:none; }
     table.cards td:empty { display:none; }
+    table.cards td.hp { display:none; }
     table.cards .rowacts { text-align:left; padding-top:8px; } table.cards .rowacts .link { padding:4px 0; }
     /* stock rows: a compact card with the gauge across the full width */
     table.cards.stock tr { display:grid; grid-template-columns:1fr auto; gap:4px 12px; }
@@ -308,7 +309,7 @@ function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.ad
 
 const state = { tab: 'dashboard', user: null, users: [], products: [], locations: [], stock: [], stockFilter: '', lowOnly: false,
   stockSort: { key: 'sku', dir: 1 }, movQ: '', movKind: '', movProduct: null,
-  lead: store.get('vinex.lead', 14), window: store.get('vinex.window', 90), insAll: false };
+  lead: store.get('vinex.lead', 14), insView: store.get('vinex.insView', 'reorder'), window: store.get('vinex.window', 90), insAll: false };
 const TABS = [['dashboard','Overview','home'],['stock','Stock','stock'],['insights','Insights','insights'],['movements','Movements','moves'],
               ['products','Products','products'],['locations','Locations','locations'],['users','Users','users']];
 const PHONE_TABS = ['dashboard', 'stock', 'insights', 'movements'];
@@ -594,17 +595,27 @@ function spark(v) {
 const rate = n => !n ? '—' : n >= 10 ? fmt(Math.round(n)) : fmt(Math.round(n * 10) / 10);
 const shortDate = s => new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 const days = n => n == null ? '—' : n === 0 ? 'None left' : n === 1 ? '1 day' : `${fmt(n)} days`;
+function insightsHead(sub, csvHref, showLead) {
+  return phead('Insights', sub, `<a class="btn" href="${csvHref}">${icon('download')}Download CSV</a>`) + `
+    <div class="filters">
+      <div class="seg" role="group" aria-label="View"><button data-iv="reorder" class="${state.insView !== 'value' ? 'on' : ''}">Reorder and demand</button><button data-iv="value" class="${state.insView === 'value' ? 'on' : ''}">Value and turnover</button></div>
+      ${showLead ? `<label class="check">Supplier lead time <input type="number" id="lead" min="1" max="365" value="${state.lead}" style="width:72px"> days</label>` : ''}
+      <label class="check">History <select id="win">${[30, 90, 180, 365].map(w => `<option value="${w}" ${w === state.window ? 'selected' : ''}>${w} days</option>`).join('')}</select></label>
+    </div>`;
+}
+function bindInsightsHead() {
+  const reload = () => { store.set('vinex.lead', state.lead); store.set('vinex.window', state.window); viewInsights().catch(e => toast(e.message)); };
+  $('#lead')?.addEventListener('change', e => { const v = +e.target.value; if (v >= 1 && v <= 365) { state.lead = v; reload(); } });
+  $('#win').onchange = e => { state.window = +e.target.value; reload(); };
+  $$('[data-iv]').forEach(b => b.onclick = () => { state.insView = b.dataset.iv; store.set('vinex.insView', state.insView); viewInsights(); });
+}
 async function viewInsights() {
+  if (state.insView === 'value') return viewValue();
   const q = `lead_days=${state.lead}&window=${state.window}`;
   const d = await api('/insights?' + q), s = d.summary;
   const action = d.items.filter(i => i.status === 'order_now' || i.status === 'watch');
   const list = state.insAll || !action.length ? d.items : action;
-  $('#view').innerHTML = phead('Insights', `Based on issues over the last ${d.params.window} days`,
-      `<a class="btn" href="/api/export/insights.csv?${q}">${icon('download')}Download CSV</a>`) + `
-    <div class="filters">
-      <label class="check">Supplier lead time <input type="number" id="lead" min="1" max="365" value="${state.lead}" style="width:72px"> days</label>
-      <label class="check">History <select id="win">${[30, 90, 180, 365].map(w => `<option value="${w}" ${w === state.window ? 'selected' : ''}>${w} days</option>`).join('')}</select></label>
-    </div>
+  $('#view').innerHTML = insightsHead(`Based on issues over the last ${d.params.window} days`, `/api/export/insights.csv?${q}`, true) + `
     ${s.limited_history ? `<div class="note">${s.limited_history === s.products ? 'All' : s.limited_history} of ${s.products} products have less than 4 weeks of history. The numbers get more reliable as issues are recorded.</div>` : ''}
     <div class="strip" style="--n:4">
       <div class="${s.order_now ? 'bad' : ''}"><div class="v">${s.order_now}</div><div class="l">To order now${s.watch ? `, ${s.watch} soon` : ''}</div></div>
@@ -647,12 +658,77 @@ async function viewInsights() {
       <li><b>Raw material needed</b>: <i>needed now</i> is the material for the finished goods the advice says to make now. <i>Needed per 30 days</i> comes from the finished-goods forecast times the amount per 1,000. A material is marked to order when its stock doesn't cover what's needed now plus use during the lead time.</li>
       <li><b>Slow-moving</b> means in stock but not issued for ${d.params.slow_days} days. <b>Unusual movements</b> are issues far above that product's typical size, and stocktakes that removed 2% or more of the stock.</li>
     </ul></details>`;
-  const reload = () => { store.set('vinex.lead', state.lead); store.set('vinex.window', state.window); viewInsights().catch(e => toast(e.message)); };
-  $('#lead').onchange = e => { const v = +e.target.value; if (v >= 1 && v <= 365) { state.lead = v; reload(); } };
-  $('#win').onchange = e => { state.window = +e.target.value; reload(); };
+  bindInsightsHead();
   $$('[data-mat]').forEach(b => b.onclick = () => materialDialog(d.materials.find(m => m.id === +b.dataset.mat)));
   $('[data-anom]')?.addEventListener('click', () => { state.anomAll = true; viewInsights(); });
   $$('[data-all]').forEach(b => b.onclick = () => { state.insAll = b.dataset.all === '1'; viewInsights(); });
+}
+
+const CAT_COLORS = ['#0f3b63', '#4a86c5', '#f2c230', '#2a9d8f', '#8c6bb1'], OTHER_COLOR = '#b4bec8';
+const moneyShort = n => n >= 1e6 ? '€' + (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? '€' + Math.round(n / 1e3) + 'k' : n >= 1e3 ? '€' + (n / 1e3).toFixed(1) + 'k' : '€' + Math.round(n);
+const turns = t => t == null ? '—' : `${fmt(t)}×`;
+async function viewValue() {
+  const d = await api('/insights/value?window=' + state.window), s = d.summary;
+  const top = d.category_order.slice(0, 5), hasOther = d.category_order.length > 5;
+  const color = c => { const i = top.indexOf(c); return i >= 0 ? CAT_COLORS[i] : OTHER_COLOR; };
+  const list = state.valAll ? d.products : d.products.slice(0, 12);
+  const change = s.change_pct;
+  $('#view').innerHTML = insightsHead(`Stock valued at today's unit costs. Turnover over the last ${d.params.window} days.`, `/api/export/turnover.csv?window=${state.window}`, false) + `
+    ${s.missing_cost ? `<div class="note">${s.missing_cost} ${s.missing_cost === 1 ? 'product has' : 'products have'} no unit cost, so ${s.missing_cost === 1 ? 'it is' : 'they are'} left out of these numbers. Add costs under Products.</div>` : ''}
+    <div class="strip" style="--n:4">
+      <div><div class="v">${money(s.value_now)}</div><div class="l">Stock value now</div></div>
+      <div><div class="v">${change == null ? '—' : `${change > 0 ? '+' : change < 0 ? '−' : ''}${fmt(Math.abs(change))}%`}</div><div class="l">Change since 3 months ago</div></div>
+      <div><div class="v">${turns(s.turnover)}</div><div class="l">Turnover per year</div></div>
+      <div><div class="v">${s.days == null ? '—' : days(s.days)}</div><div class="l">Days of inventory</div></div>
+    </div>
+    <section class="panel" style="margin-bottom:16px"><div class="ph"><h2>Stock value by month</h2></div><div class="pb" id="valchart"></div></section>
+    <div class="cols">
+      <section class="panel"><div class="ph"><h2>By category</h2></div>
+        ${d.categories.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Category</th><th class="num">Average value</th><th class="num">Share</th><th class="num">Turnover</th><th class="num">Days</th></tr></thead><tbody>
+        ${d.categories.map(c => `<tr><td><span class="strong"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:8px;background:${color(c.category)}"></i>${esc(c.category)}</span><div class="sub">${c.products} ${c.products === 1 ? 'product' : 'products'}</div></td>
+          <td data-label="Average value" class="num">${money(c.avg_value)}</td><td data-label="Share" class="num hp">${fmt(c.share)}%</td>
+          <td data-label="Turnover" class="num">${turns(c.turnover)}</td><td data-label="Days" class="num hp">${c.days == null ? '—' : fmt(c.days)}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="empty"><b>No stock value yet</b>Add unit costs and receive stock to see this.</div>'}</section>
+      <section class="panel"><div class="ph"><h2>Where the money sits</h2>${d.products.length > 12 ? `<button class="link" data-valall>${state.valAll ? 'Show top 12' : `Show all ${d.products.length}`}</button>` : ''}</div>
+        ${list.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Product</th><th class="num">Average value</th><th class="num">Turnover</th><th class="num">Days</th></tr></thead><tbody>
+        ${list.map(r => `<tr><td><div class="sku">${esc(r.sku)}</div><div class="sub">${esc(r.name)}</div></td>
+          <td data-label="Average value" class="num">${money(r.avg_value)}<div class="sub">now ${money(r.value_now)}</div></td>
+          <td data-label="Turnover" class="num">${turns(r.turnover)}</td><td data-label="Days" class="num hp">${r.days == null ? 'Not used' : fmt(r.days)}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="empty"><b>No products to show</b></div>'}</section>
+    </div>
+    <details class="how"><summary>How these numbers are worked out</summary><ul>
+      <li><b>Stock value</b> is quantity on hand times today's unit cost, at the end of each month. Past months use today's costs too, so the chart shows changes in quantity, not in price.</li>
+      <li><b>Average value</b> is the average of the stock value at the end of each day in the last ${d.params.window} days.</li>
+      <li><b>Turnover</b> is the value issued in that period divided by the average value, scaled to a year. 6× means the stock is used up and replaced about every 2 months. Higher is better: less cash tied up.</li>
+      <li><b>Days of inventory</b> is how many days the average stock would last at the period's rate of use.</li>
+    </ul></details>`;
+  drawValue($('#valchart'), d.months, d.category_order, color, hasOther);
+  bindInsightsHead();
+  $('[data-valall]')?.addEventListener('click', () => { state.valAll = !state.valAll; viewValue(); });
+}
+function drawValue(el, months, cats, color, hasOther) {
+  const first = months.findIndex(m => m.total > 0);
+  if (first < 0) { el.innerHTML = '<div class="empty" style="padding:20px"><b>No stock value yet</b>Add unit costs and receive stock to see this.</div>'; return; }
+  const ms = months.slice(Math.max(0, Math.min(first, months.length - 3)));
+  const keys = cats.slice(0, 5).concat(hasOther ? ['__other'] : []);
+  const val = (m, k) => k === '__other' ? Object.entries(m.by_category).filter(([c]) => !cats.slice(0, 5).includes(c)).reduce((a, [, v]) => a + v, 0) : (m.by_category[k] || 0);
+  const max = Math.max(...ms.map(m => m.total), 1);
+  const W = Math.max(280, el.clientWidth - 36), H = 200, left = 48, bottom = 22, plot = H - bottom - 8, bw = (W - left) / ms.length;
+  const ticks = [0, 0.5, 1].map(t => `<line x1="${left}" x2="${W}" y1="${H - bottom - t * plot}" y2="${H - bottom - t * plot}" stroke="var(--line-2)"/>
+    <text x="${left - 6}" y="${H - bottom - t * plot + 4}" text-anchor="end" font-size="11" fill="var(--faint)">${moneyShort(max * t)}</text>`).join('');
+  const bars = ms.map((m, i) => {
+    let y = H - bottom, segs = '';
+    const x = left + i * bw + bw * 0.18, w = bw * 0.64;
+    for (const k of keys) {
+      const h = val(m, k) / max * plot; if (h <= 0) continue;
+      y -= h; segs += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${k === '__other' ? OTHER_COLOR : color(k)}"/>`;
+    }
+    const lbl = new Date(m.date).toLocaleDateString('en-GB', { month: 'short' }) + (i === ms.length - 1 ? ' (now)' : '');
+    const show = W > 520 || i % 2 === (ms.length - 1) % 2;
+    return `<g><title>${lbl}: ${money(m.total)}</title>${segs}${show ? `<text x="${x + w / 2}" y="${H - 6}" text-anchor="middle" font-size="11" fill="var(--faint)">${esc(lbl)}</text>` : ''}</g>`;
+  }).join('');
+  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Stock value by month and category">${ticks}${bars}</svg>
+    <div class="legend">${keys.map(k => `<span><i style="background:${k === '__other' ? OTHER_COLOR : color(k)}"></i>${k === '__other' ? 'Other' : esc(k)}</span>`).join('')}</div>`;
 }
 
 function materialsPanel(d) {

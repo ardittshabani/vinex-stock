@@ -620,6 +620,24 @@ def get_insights():
     return jsonify(insights.compute(db, stock_summary(db), lead_days=lead, window=window))
 
 
+@app.get("/api/insights/value")
+def get_value_insights():
+    db = get_db()
+    _, window = insights_params()
+    return jsonify(insights.value_and_turnover(db, stock_summary(db), window=window))
+
+
+@app.get("/api/export/turnover.csv")
+def export_turnover():
+    db = get_db()
+    _, window = insights_params()
+    data = insights.value_and_turnover(db, stock_summary(db), window=window)
+    rows = [[r["sku"], r["name"], r["category"], r["value_now"], r["avg_value"], r["issued_value"], r["turnover"], r["days"]]
+            for r in data["products"]]
+    return csv_response("turnover.csv", ["SKU", "Name", "Category", "Value now (€)", f"Average value, last {window} days (€)",
+                                         f"Value issued, last {window} days (€)", "Turnover per year", "Days of inventory"], rows)
+
+
 @app.get("/api/export/insights.csv")
 def export_insights():
     db = get_db()

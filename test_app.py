@@ -463,3 +463,39 @@ class MaterialTests(unittest.TestCase):
         self.assertEqual(prods["NUT"]["material_id"], prods["ROD"]["id"])
         r = self.c.post("/api/import/products", json={"csv": "sku,name,material_sku,material_per_1000\nNUT,Nut,MISSING,5\n"})
         self.assertEqual(r.status_code, 400)
+
+
+class ValueTurnoverTests(unittest.TestCase):
+    def setUp(self):
+        from datetime import date, timedelta
+        db = stock.connect()
+        for t in ("movements", "products", "locations"):
+            db.execute(f"DELETE FROM {t}")
+        db.execute("INSERT INTO locations(name) VALUES ('Main')")
+        loc = db.execute("SELECT id FROM locations").fetchone()[0]
+        pid = db.execute("INSERT INTO products(sku,name,category,unit_cost) VALUES ('P','P','Bolts',2)").lastrowid
+        db.execute("INSERT INTO products(sku,name) VALUES ('NOCOST','N')")
+        today = date.today()
+        ins = lambda kind, q, d: db.execute(
+            "INSERT INTO movements(product_id,location_id,kind,qty,created_at,operator) VALUES (?,?,?,?,?,'t')", (pid, loc, kind, q, f"{d} 10:00:00"))
+        ins("IN", 300, today - timedelta(days=100))
+        for i in range(30):                      # issue 10 and receive 10 each day: stock stays at 300
+            d = today - timedelta(days=i)
+            ins("OUT", -10, d)
+            ins("IN", 10, d)
+        db.commit()
+        db.close()
+        self.c = client_as("admin", ADMIN_PW)
+
+    def test_turnover_numbers(self):
+        d = self.c.get("/api/insights/value?window=30").get_json()
+        s = d["summary"]
+        self.assertEqual(s["value_now"], 600)
+        self.assertEqual(s["avg_value"], 600)
+        self.assertEqual(s["turnover"], 12.2)    # 600 issued / 600 average x 365/30
+        self.assertEqual(s["days"], 30)
+        self.assertEqual(s["missing_cost"], 1)
+        self.assertEqual(d["categories"][0]["category"], "Bolts")
+        self.assertEqual(d["months"][-1]["by_category"], {"Bolts": 600})
+        self.assertEqual(len(d["months"]), 12)
+        self.assertEqual(self.c.get("/api/export/turnover.csv").status_code, 200)

@@ -50,6 +50,7 @@ Every movement records the signed-in user. Passwords are hashed; 5 wrong attempt
 - **Safety checks** – cannot issue more than is on hand (per location and per lot); transfers are all-or-nothing; two people saving at once can't both take the last box.
 - **Barcode / QR scanning** – scan with the phone camera (needs an https address) to fill a product in a movement, or to find it on the Stock page. Matches barcode first, then SKU, then Prodata code.
 - **Reverse a movement** (admin) – books an opposite entry instead of deleting; both legs of a transfer are reversed, and it is refused if it would make stock negative.
+- **Insights** (data science, from the movement history) – demand per day with a 4-week trend, days of stock left and expected stock-out date, reorder point with safety stock (95% service level, adjustable supplier lead time), suggested order quantity, 30-day forecast (exponential smoothing), ABC (usage value) and XYZ (demand variability) classes, slow-moving stock, and unusual movements (outlier issues, large stocktake losses). Downloadable as CSV. Logic in `insights.py`, standard library only.
 - **Dashboard** – low / out of stock, stock value, 14-day activity chart, recent movements, reorder list (CSV download). **Stock** view with sortable columns, per-location and per-lot detail, per-product history. Tables become cards on phones.
 - **CSV** – import products (columns include `barcode`), import opening stock (go-live), export stock, movements and the reorder list.
 
@@ -62,11 +63,12 @@ Quantities are never edited directly: each is the sum of an append-only movement
 | `app.py` | Flask server, API, SQLite database |
 | `auth.py` | Login, roles, user management |
 | `static/index.html` | The whole UI (no build step), works on phone screens |
+| `insights.py` | Analytics behind the Insights page |
 | `prodata.py` | Placeholder for the Prodata integration |
 | `seed_demo.py` | Demo data |
 | `test_app.py` | `python -m unittest test_app -v` |
 | `Procfile` | Start command for Railway |
-| `static/vendor/` | html5-qrcode (Apache-2.0) for scanning, loaded only when you tap Scan |
+| `static/vendor/` | html5-qrcode (Apache-2.0) for scanning, loaded only when you tap Scan; IBM Plex Sans (OFL) |
 
 ## Prodata
 

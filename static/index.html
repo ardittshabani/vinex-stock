@@ -2,190 +2,288 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Vinex Fasteners - Stock</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vinex Stock</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b2c4a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Cpath d=%27M12 1.5 21 6.7v10.6l-9 5.2-9-5.2V6.7z%27 fill=%27%230b2c4a%27/%3E%3Ccircle cx=%2712%27 cy=%2712%27 r=%273.6%27 fill=%27%23f2c230%27/%3E%3C/svg%3E">
 <style>
+  @font-face { font-family:"Plex"; font-weight:400; font-display:swap; src:url(/static/vendor/fonts/ibm-plex-sans-latin-400-normal.woff2) format("woff2"); unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+  @font-face { font-family:"Plex"; font-weight:500; font-display:swap; src:url(/static/vendor/fonts/ibm-plex-sans-latin-500-normal.woff2) format("woff2"); unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+  @font-face { font-family:"Plex"; font-weight:600; font-display:swap; src:url(/static/vendor/fonts/ibm-plex-sans-latin-600-normal.woff2) format("woff2"); unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+  @font-face { font-family:"Plex"; font-weight:400; font-display:swap; src:url(/static/vendor/fonts/ibm-plex-sans-latin-ext-400-normal.woff2) format("woff2"); unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+  @font-face { font-family:"Plex"; font-weight:500; font-display:swap; src:url(/static/vendor/fonts/ibm-plex-sans-latin-ext-500-normal.woff2) format("woff2"); unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+  @font-face { font-family:"Plex"; font-weight:600; font-display:swap; src:url(/static/vendor/fonts/ibm-plex-sans-latin-ext-600-normal.woff2) format("woff2"); unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+
   :root {
-    --bg:#f4f5f7; --card:#fff; --ink:#1b2430; --muted:#6b7686; --line:#e1e5ea;
-    --accent:#0f4c81; --accent-ink:#fff; --ok:#1f8a4c; --low:#b26a00; --out:#b3261e;
-    --ok-bg:#e5f4ec; --low-bg:#fdf1dc; --out-bg:#fbe6e4;
+    --paper:#f2f4f6; --surface:#fff; --ink:#15212d; --muted:#5e6c7a; --faint:#8a96a3; --line:#dce2e8; --line-2:#eef1f4;
+    --navy:#0f3b63; --navy-deep:#0b2c4a; --zinc:#f2c230; --zinc-hover:#e5b31c; --zinc-ink:#2a2100;
+    --ok:#1e7f4a; --ok-bg:#e3f2ea; --low:#a86400; --low-bg:#fcefd6; --out:#b42318; --out-bg:#fbe4e1;
+    --r-panel:12px; --r-ctl:8px;
   }
   * { box-sizing:border-box; }
-  body { margin:0; font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--bg); }
-  header { background:var(--accent); color:#fff; display:flex; align-items:center; gap:24px; padding:0 24px; height:52px; }
-  header h1 { font-size:16px; margin:0; font-weight:600; letter-spacing:.2px; white-space:nowrap; }
-  nav { display:flex; gap:2px; flex:1; }
-  nav button { background:none; border:0; color:#cfe0f1; padding:0 16px; height:52px; font:inherit; cursor:pointer; border-bottom:3px solid transparent; }
-  nav button:hover { color:#fff; }
-  nav button.active { color:#fff; border-bottom-color:#fff; font-weight:600; }
-  .operator { display:flex; align-items:center; gap:8px; font-size:13px; color:#cfe0f1; }
-  .operator input { background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.3); color:#fff; border-radius:6px; padding:5px 8px; width:140px; }
-  .operator input::placeholder { color:#b6cde4; }
-  main { max-width:1280px; margin:0 auto; padding:24px; }
-  .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
-  .toolbar .spacer { flex:1; }
-  h2 { font-size:18px; margin:0 0 14px; }
-  h3 { font-size:14px; margin:0 0 10px; }
-  div.cards { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:20px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
-  .stat .v { font-size:26px; font-weight:650; }
-  .stat .l { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.5px; }
-  .stat.warn .v { color:var(--low); } .stat.bad .v { color:var(--out); }
-  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  table { width:100%; border-collapse:collapse; background:var(--card); }
-  .tablewrap { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:auto; }
-  th,td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { font-size:12px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); background:#fafbfc; position:sticky; top:0; white-space:nowrap; }
-  tr:last-child td { border-bottom:0; }
-  tbody tr:hover { background:#f8fafc; }
-  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
-  .muted { color:var(--muted); } .small { font-size:12px; }
-  .badge { display:inline-block; padding:2px 9px; border-radius:99px; font-size:12px; font-weight:600; }
-  .badge.ok { background:var(--ok-bg); color:var(--ok); } .badge.low { background:var(--low-bg); color:var(--low); }
-  .badge.out { background:var(--out-bg); color:var(--out); } .badge.off { background:#eceff3; color:var(--muted); }
-  .in { color:var(--ok); font-weight:600; } .outq { color:var(--out); font-weight:600; } .adj { color:var(--low); font-weight:600; }
-  button.btn, a.btn, summary.btn { font:inherit; border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:7px; padding:7px 13px; cursor:pointer; text-decoration:none; display:inline-block; }
-  button.btn:hover, a.btn:hover, summary.btn:hover { background:#f1f4f8; }
-  button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
-  button.primary:hover { background:#0c3d69; }
-  button.link { background:none; border:0; color:var(--accent); cursor:pointer; padding:0; font:inherit; }
-  button.link:hover { text-decoration:underline; }
-  input, select, textarea { font:inherit; padding:7px 9px; border:1px solid #c9d0d9; border-radius:7px; background:#fff; color:var(--ink); }
-  input:focus, select:focus, textarea:focus { outline:2px solid #9cc3e6; border-color:var(--accent); }
-  input[type=search] { width:260px; }
-  dialog { border:0; border-radius:12px; padding:0; width:520px; max-width:94vw; box-shadow:0 20px 60px rgba(0,0,0,.3); }
-  dialog::backdrop { background:rgba(20,30,45,.45); }
-  dialog form { padding:22px; }
-  dialog h2 { margin-bottom:16px; }
-  .field { margin-bottom:12px; display:flex; flex-direction:column; gap:4px; }
-  .field label { font-size:12px; color:var(--muted); font-weight:600; }
-  .field.row { flex-direction:row; align-items:center; gap:8px; } .field.row label { color:var(--ink); font-weight:400; font-size:14px; }
-  .two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .hint { font-size:12px; color:var(--muted); min-height:16px; margin-top:-6px; margin-bottom:10px; }
-  .hint b { color:var(--ink); }
-  .actions { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
-  .err { background:var(--out-bg); color:var(--out); border-radius:7px; padding:8px 10px; margin-bottom:12px; font-size:13px; }
-  #toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:#1b2430; color:#fff; padding:10px 18px; border-radius:8px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:99; }
-  #toast.show { opacity:1; }
-  .empty { padding:40px; text-align:center; color:var(--muted); }
-  .locs span { display:inline-block; margin-right:12px; white-space:nowrap; }
-  code { background:#eef1f5; padding:1px 5px; border-radius:4px; font-size:12px; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; font:14px/1.5 "Plex", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--ink); background:var(--paper); font-variant-numeric:tabular-nums; }
   [hidden] { display:none !important; }
-  .operator { gap:10px; }
-  .rolechip { background:rgba(255,255,255,.18); border-radius:99px; padding:1px 8px; font-size:12px; margin-left:4px; }
-  .hbtn { background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.3); color:#fff; border-radius:6px; padding:5px 10px; font:inherit; font-size:13px; cursor:pointer; }
-  .hbtn:hover { background:rgba(255,255,255,.26); }
-  #login { position:fixed; inset:0; z-index:50; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:16px; }
-  .logincard { background:#fff; border:1px solid var(--line); border-radius:14px; padding:28px; width:360px; max-width:100%; box-shadow:0 10px 40px rgba(20,30,45,.12); }
-  .logincard h1 { margin:0 0 2px; font-size:20px; color:var(--accent); }
-  .logincard p { margin:0 0 18px; }
-  @media (max-width:1000px) { div.cards { grid-template-columns:repeat(2,1fr);} .grid2 { grid-template-columns:1fr; } }
-  @media (max-width:700px) {
-    header { height:auto; flex-wrap:wrap; padding:8px 12px; gap:6px 12px; }
-    header h1 { font-size:15px; }
-    nav { order:3; width:100%; flex:none; overflow-x:auto; }
-    nav button { height:40px; padding:0 12px; white-space:nowrap; }
-    .operator { margin-left:auto; font-size:12px; }
-    main { padding:12px; }
-    div.cards { gap:10px; } .stat .v { font-size:20px; }
-    .toolbar { gap:8px; } .toolbar .spacer { display:none; } .toolbar h2 { width:100%; }
-    input[type=search], .toolbar select { width:100%; }
-    input, select, textarea { font-size:16px; } /* stops iPhones zooming into fields */
-    button.btn, a.btn, summary.btn { padding:10px 14px; }
-    dialog { width:100vw; max-width:100vw; margin:auto 0 0 0; border-radius:14px 14px 0 0; max-height:92vh; }
-    .two { grid-template-columns:1fr; }
-    th, td { padding:8px; }
-    /* tables marked class="cards" become one card per row on a phone */
-    table.cards thead { display:none; }
-    table.cards, table.cards tbody { display:block; }
-    table.cards tr { display:block; padding:10px 12px; border-bottom:1px solid var(--line); }
-    table.cards td { display:flex; justify-content:space-between; gap:14px; border:0; padding:3px 0; text-align:right; }
-    table.cards td::before { content:attr(data-label); color:var(--muted); font-size:12px; text-align:left; flex:none; }
-    table.cards td:not([data-label])::before { content:none; }
-    table.cards td:empty { display:none; }
-    table.cards td:first-child { font-size:15px; }
-    table.cards .locs span { display:block; margin:0; }
-  }
-  .sortable { cursor:pointer; user-select:none; }
-  .sortable:hover { color:var(--ink); }
-  .sortable .arr { font-size:10px; margin-left:4px; }
-  .chip { display:inline-flex; align-items:center; background:#e8f0f8; color:var(--accent); border-radius:99px; padding:3px 4px 3px 12px; font-size:13px; font-weight:600; }
-  .chip button { background:none; border:0; cursor:pointer; color:inherit; font-size:16px; line-height:1; padding:0 8px; }
-  .inputrow { display:flex; gap:8px; }
-  .inputrow input { flex:1; min-width:0; }
-  .chart { width:100%; height:auto; display:block; }
-  .legend { display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12px; color:var(--muted); margin-top:6px; }
-  .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
-  #scan { width:480px; }
-  #scan > div { padding:20px; }
-  #reader { width:100%; min-height:240px; background:#111; border-radius:8px; overflow:hidden; }
-  .badge.rev { background:#eceff3; color:var(--muted); font-weight:500; }
-  tr.dim td { opacity:.6; }
-  .card h3 .dl { float:right; font-weight:500; font-size:12px; color:var(--accent); text-decoration:none; }
-  /* dropdown menus (user menu, "More") built on <details>, no script needed to open */
+  :focus-visible { outline:2px solid var(--navy); outline-offset:2px; }
+  svg.i { width:18px; height:18px; flex:none; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* ---------- shell ---------- */
+  .app { display:grid; grid-template-columns:232px 1fr; min-height:100vh; }
+  .side { background:var(--navy-deep); color:#c9d6e3; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; padding:18px 12px; }
+  .brand { display:flex; align-items:center; gap:10px; padding:4px 10px 22px; color:#fff; font-weight:600; font-size:16px; letter-spacing:.2px; }
+  .brand svg { width:28px; height:28px; }
+  .brand small { display:block; font-weight:400; font-size:12px; color:#8fa6bd; letter-spacing:0; }
+  .side nav { display:flex; flex-direction:column; gap:2px; flex:1; }
+  .side nav button { display:flex; align-items:center; gap:12px; width:100%; background:none; border:0; color:inherit; font:inherit; padding:9px 12px; border-radius:var(--r-ctl); cursor:pointer; text-align:left; }
+  .side nav button:hover { background:rgba(255,255,255,.06); color:#fff; }
+  .side nav button.active { background:rgba(255,255,255,.1); color:#fff; font-weight:500; box-shadow:inset 3px 0 0 var(--zinc); }
+  .side .me { border-top:1px solid rgba(255,255,255,.1); padding-top:12px; }
+  .avatar { width:30px; height:30px; border-radius:50%; background:var(--zinc); color:var(--zinc-ink); display:inline-grid; place-items:center; font-weight:600; font-size:13px; flex:none; }
+  .who { display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:var(--r-ctl); cursor:pointer; }
+  .who:hover { background:rgba(255,255,255,.06); }
+  .who b { display:block; color:#fff; font-weight:500; } .who span.r { font-size:12px; color:#8fa6bd; }
+  .topbar { display:none; }
+  .tabbar { display:none; }
+  main { padding:28px 32px 48px; max-width:1240px; width:100%; }
+
+  /* ---------- page header & panels ---------- */
+  .phead { display:flex; align-items:flex-end; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+  .phead h1 { font-size:24px; line-height:1.2; font-weight:600; margin:0; letter-spacing:-.2px; }
+  .phead .sub { color:var(--muted); margin:4px 0 0; }
+  .phead .grow { flex:1; }
+  .acts { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .panel { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-panel); }
+  .panel > .ph { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--line-2); }
+  .panel > .ph h2 { font-size:15px; font-weight:600; margin:0; flex:1; }
+  .panel > .ph a, .panel > .ph .link { font-size:13px; }
+  .panel > .pb { padding:16px 18px; }
+  .stack { display:grid; gap:16px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start; }
+  .cols.wide-left { grid-template-columns:1.35fr 1fr; }
+  .muted { color:var(--muted); } .small { font-size:12.5px; } .strong { font-weight:600; }
+  code { background:var(--line-2); padding:1px 5px; border-radius:4px; font-size:12.5px; }
+  a { color:var(--navy); }
+
+  /* stat strip: one panel split into cells, not a row of identical cards */
+  .strip { display:grid; grid-template-columns:repeat(var(--n,4),1fr); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-panel); margin-bottom:16px; }
+  .strip > div { padding:16px 20px; border-left:1px solid var(--line-2); }
+  .strip > div:first-child { border-left:0; }
+  .strip .v { font-size:26px; font-weight:600; line-height:1.15; letter-spacing:-.3px; }
+  .strip .l { color:var(--muted); font-size:13px; margin-top:2px; }
+  .strip .warn .v { color:var(--low); } .strip .bad .v { color:var(--out); }
+
+  /* ---------- controls ---------- */
+  .btn { font:inherit; font-weight:500; display:inline-flex; align-items:center; justify-content:center; gap:7px; border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:var(--r-ctl); padding:8px 14px; cursor:pointer; text-decoration:none; white-space:nowrap; line-height:1.3; }
+  .btn:hover { background:#f6f8fa; border-color:#cbd3db; }
+  .btn.primary { background:var(--zinc); border-color:var(--zinc); color:var(--zinc-ink); }
+  .btn.primary:hover { background:var(--zinc-hover); border-color:var(--zinc-hover); }
+  .btn.dark { background:var(--navy); border-color:var(--navy); color:#fff; }
+  .btn.icon { padding:8px 10px; }
+  .btn svg.i { width:16px; height:16px; }
+  button.link { background:none; border:0; color:var(--navy); cursor:pointer; padding:0; font:inherit; font-weight:500; }
+  button.link:hover, a:hover { text-decoration:underline; }
+  input, select, textarea { font:inherit; padding:8px 10px; border:1px solid #c9d1d9; border-radius:var(--r-ctl); background:#fff; color:var(--ink); }
+  input:focus, select:focus, textarea:focus { outline:2px solid #b8cde2; border-color:var(--navy); }
+  .search { position:relative; }
+  .search svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--faint); width:16px; height:16px; }
+  .search input { padding-left:32px; width:280px; }
+  .check { display:inline-flex; align-items:center; gap:7px; color:var(--muted); cursor:pointer; }
+  .seg { display:inline-flex; background:var(--line-2); border-radius:var(--r-ctl); padding:3px; }
+  .seg button { border:0; background:none; font:inherit; padding:5px 12px; border-radius:6px; color:var(--muted); cursor:pointer; }
+  .seg button.on { background:#fff; color:var(--ink); font-weight:500; box-shadow:0 1px 2px rgba(21,33,45,.12); }
+  .filters { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+
+  /* ---------- tables ---------- */
+  .tablewrap { overflow:auto; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:11px 14px; border-bottom:1px solid var(--line-2); vertical-align:middle; }
+  th { font-size:12.5px; font-weight:500; color:var(--muted); background:#fafbfc; white-space:nowrap; position:sticky; top:0; }
+  tbody tr:last-child td { border-bottom:0; }
+  tbody tr:hover { background:#fafcfd; }
+  .num { text-align:right; }
+  td .sku { font-weight:600; white-space:nowrap; } td .sub { color:var(--muted); font-size:12.5px; }
+  .sortable { cursor:pointer; user-select:none; } .sortable:hover { color:var(--ink); } .arr { font-size:10px; margin-left:4px; }
+  .rowacts { white-space:nowrap; text-align:right; } .rowacts .link + .link { margin-left:14px; }
+  tr.dim td { opacity:.55; }
+  .empty { padding:36px 20px; text-align:center; color:var(--muted); }
+  .empty b { display:block; color:var(--ink); font-weight:500; margin-bottom:4px; }
+
+  /* status pills and the stock-level gauge */
+  .pill { display:inline-flex; align-items:center; gap:6px; padding:2px 10px 2px 8px; border-radius:99px; font-size:12.5px; font-weight:500; white-space:nowrap; }
+  .pill::before { content:""; width:7px; height:7px; border-radius:50%; background:currentColor; }
+  .pill.ok { background:var(--ok-bg); color:var(--ok); } .pill.low { background:var(--low-bg); color:var(--low); }
+  .pill.out { background:var(--out-bg); color:var(--out); } .pill.off { background:var(--line-2); color:var(--muted); }
+  .tag { display:inline-block; padding:1px 8px; border-radius:6px; background:var(--line-2); color:var(--muted); font-size:12px; font-weight:500; }
+  .gauge { position:relative; height:8px; border-radius:99px; background:var(--line-2); min-width:110px; }
+  .gauge > span { position:absolute; left:0; top:0; bottom:0; border-radius:99px; background:var(--navy); }
+  .gauge > span.low { background:var(--low); } .gauge > span.out { background:var(--out); }
+  .gauge > i { position:absolute; top:-4px; bottom:-4px; width:2px; margin-left:-1px; background:var(--ink); border-radius:1px; }
+  .in { color:var(--ok); } .outq { color:var(--out); } .adj { color:var(--low); }
+  .qty { font-weight:600; } .unit { color:var(--muted); font-weight:400; font-size:12.5px; margin-left:3px; }
+
+  /* recent activity feed */
+  .feed { list-style:none; margin:0; padding:0; }
+  .feed li { display:grid; grid-template-columns:30px 1fr auto; gap:12px; align-items:center; padding:10px 18px; border-bottom:1px solid var(--line-2); }
+  .feed li:last-child { border-bottom:0; }
+  .feed .k { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; font-weight:600; }
+  .feed .k.in { background:var(--ok-bg); } .feed .k.outq { background:var(--out-bg); } .feed .k.adj { background:var(--low-bg); }
+  .feed .t { color:var(--muted); font-size:12.5px; }
+
+  .chart { display:block; width:100%; height:auto; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12.5px; color:var(--muted); margin-top:8px; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
+  .spark { display:block; }
+  .note { background:#eef4fa; border:1px solid #d3e1ee; color:#21405e; border-radius:var(--r-ctl); padding:10px 14px; margin-bottom:16px; }
+  details.how { margin-top:16px; color:var(--muted); }
+  details.how summary { cursor:pointer; color:var(--navy); font-weight:500; }
+  details.how ul { margin:8px 0 0; padding-left:18px; max-width:76ch; } details.how li { margin:4px 0; }
+
+  /* dropdown menus built on <details> */
   details.dd { position:relative; }
   details.dd > summary { list-style:none; cursor:pointer; user-select:none; }
   details.dd > summary::-webkit-details-marker { display:none; }
-  details.dd .menu { position:absolute; right:0; top:calc(100% + 6px); min-width:200px; background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 30px rgba(20,30,45,.18); padding:6px; z-index:30; display:flex; flex-direction:column; }
-  details.dd .menu > * { background:none; border:0; text-align:left; padding:9px 12px; border-radius:7px; font:inherit; color:inherit; cursor:pointer; text-decoration:none; display:block; width:100%; }
-  details.dd .menu > *:hover { background:#f1f4f8; }
-  details.dd .menu .who { color:var(--muted); font-size:12px; cursor:default; } details.dd .menu .who:hover { background:none; }
-  .usermenu > summary { color:#fff; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.3); border-radius:99px; padding:5px 12px; font-size:13px; white-space:nowrap; }
-  .usermenu > summary:hover { background:rgba(255,255,255,.26); }
-  .acts { display:flex; gap:8px; align-items:center; }
-  .stock .c-qty b { font-size:16px; } .stock .c-qty, .stock .c-sku { white-space:nowrap; }
-  @media (max-width:1000px) { div.cards .stat:last-child { grid-column:1 / -1; } }
-  @media (max-width:700px) {
-    /* header: title + user menu on one slim row; tabs become a bottom bar */
-    header { height:48px; flex-wrap:nowrap; padding:0 12px; gap:8px; }
-    header h1 { font-size:15px; flex:1; overflow:hidden; text-overflow:ellipsis; }
-    nav { position:fixed; left:0; right:0; bottom:0; width:auto; order:0; z-index:20; background:#fff; border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom); overflow:visible; gap:0; }
-    nav button { flex:1; height:54px; padding:0 2px; font-size:11px; color:var(--muted); border-bottom:0; border-top:3px solid transparent; white-space:nowrap; }
-    nav button:hover { color:var(--ink); }
-    nav button.active { color:var(--accent); border-top-color:var(--accent); }
+  details.dd .menu { position:absolute; right:0; top:calc(100% + 6px); min-width:210px; background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:10px; box-shadow:0 12px 32px rgba(11,44,74,.18); padding:6px; z-index:30; display:flex; flex-direction:column; }
+  details.dd.up .menu { top:auto; bottom:calc(100% + 6px); left:0; right:auto; }
+  details.dd .menu > * { background:none; border:0; text-align:left; padding:9px 12px; border-radius:7px; font:inherit; color:inherit; cursor:pointer; text-decoration:none; display:flex; align-items:center; gap:10px; width:100%; }
+  details.dd .menu > *:hover { background:var(--paper); text-decoration:none; }
+  .chip { display:inline-flex; align-items:center; background:#e6eef6; color:var(--navy); border-radius:99px; padding:3px 4px 3px 12px; font-size:13px; font-weight:500; }
+  .chip button { background:none; border:0; cursor:pointer; color:inherit; font-size:16px; line-height:1; padding:0 8px; }
+
+  /* ---------- dialogs, login, toast ---------- */
+  dialog { border:0; border-radius:14px; padding:0; width:540px; max-width:94vw; box-shadow:0 24px 64px rgba(11,44,74,.3); color:var(--ink); }
+  dialog::backdrop { background:rgba(11,44,74,.45); }
+  dialog form, dialog > div { padding:24px; }
+  dialog h2 { font-size:18px; font-weight:600; margin:0 0 18px; }
+  .field { margin-bottom:14px; display:flex; flex-direction:column; gap:5px; }
+  .field label { font-size:13px; color:var(--muted); font-weight:500; }
+  .field.row { flex-direction:row; align-items:center; gap:8px; } .field.row label { color:var(--ink); font-weight:400; font-size:14px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .inputrow { display:flex; gap:8px; } .inputrow input { flex:1; min-width:0; }
+  .hint { font-size:13px; color:var(--muted); min-height:18px; margin:-6px 0 12px; } .hint b { color:var(--ink); }
+  .actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+  .err { background:var(--out-bg); color:var(--out); border-radius:var(--r-ctl); padding:9px 12px; margin-bottom:14px; font-size:13px; }
+  #scan { width:480px; }
+  #reader { width:100%; min-height:240px; background:#0b1620; border-radius:10px; overflow:hidden; }
+  #login { position:fixed; inset:0; z-index:50; background:var(--navy-deep); display:flex; align-items:center; justify-content:center; padding:16px; }
+  .logincard { background:#fff; border-radius:16px; padding:32px; width:380px; max-width:100%; }
+  .logincard .brand { color:var(--ink); padding:0 0 4px; font-size:20px; }
+  .logincard p { margin:0 0 22px; color:var(--muted); }
+  .logincard .btn { width:100%; padding:11px; margin-top:6px; }
+  #toast { position:fixed; bottom:24px; left:50%; transform:translate(-50%,8px); background:var(--ink); color:#fff; padding:10px 18px; border-radius:10px; opacity:0; transition:opacity .2s, transform .2s; pointer-events:none; z-index:99; }
+  #toast.show { opacity:1; transform:translate(-50%,0); }
+  .sheet .menu-list { display:flex; flex-direction:column; }
+  .sheet .menu-list button { display:flex; align-items:center; gap:14px; background:none; border:0; font:inherit; padding:13px 6px; border-bottom:1px solid var(--line-2); text-align:left; color:var(--ink); cursor:pointer; }
+  @media (prefers-reduced-motion: reduce) { #toast { transition:none; } }
+
+  /* ---------- tablet ---------- */
+  @media (max-width:1100px) {
+    .cols, .cols.wide-left { grid-template-columns:1fr; }
+    .strip { grid-template-columns:repeat(2,1fr); }
+    .strip > div:nth-child(odd) { border-left:0; } .strip > div:nth-child(n+3) { border-top:1px solid var(--line-2); }
+    .strip > div:last-child:nth-child(odd) { grid-column:1 / -1; }
+  }
+  /* ---------- phone ---------- */
+  @media (max-width:760px) {
+    .app { display:block; }
+    .side { display:none; }
+    .topbar { display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:20; background:var(--navy-deep); color:#fff; padding:10px 14px; padding-top:calc(10px + env(safe-area-inset-top)); }
+    .topbar .brand { padding:0; font-size:15px; flex:1; } .topbar .brand svg { width:24px; height:24px; }
+    .tabbar { display:flex; position:fixed; left:0; right:0; bottom:0; z-index:20; background:#fff; border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom); }
+    .tabbar button { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; background:none; border:0; font:inherit; font-size:11px; color:var(--muted); padding:8px 2px 7px; cursor:pointer; }
+    .tabbar button.active { color:var(--navy); font-weight:600; }
+    .tabbar button.active svg { stroke-width:2.2; }
     body { padding-bottom:calc(64px + env(safe-area-inset-bottom)); }
     #toast { bottom:84px; }
-    .toolbar .acts { width:100%; } .toolbar .acts > .btn, .toolbar .acts > details { flex:1; } .toolbar .acts > details > summary { text-align:center; }
-    .toolbar .searchrow { width:100%; }
-    /* stock: compact 4-line cards instead of a label/value list */
-    table.cards.stock tr { display:grid; grid-template-columns:1fr auto; gap:2px 12px; align-items:baseline; }
-    table.cards.stock td { display:block; padding:0; text-align:left; }
+    main { padding:16px 14px 24px; }
+    .phead { margin-bottom:14px; } .phead h1 { font-size:21px; }
+    .phead .acts { width:100%; } .phead .acts > .btn, .phead .acts > details { flex:1; } .phead .acts > details > summary { width:100%; }
+    .search, .search input, .filters select { width:100%; }
+    input, select, textarea { font-size:16px; }
+    .btn { padding:10px 14px; }
+    .strip .v { font-size:21px; } .strip > div { padding:14px 16px; }
+    .panel > .ph, .panel > .pb { padding-left:14px; padding-right:14px; }
+    .feed li { padding:10px 14px; }
+    dialog { width:100vw; max-width:100vw; margin:auto 0 0 0; border-radius:16px 16px 0 0; max-height:92vh; }
+    .two { grid-template-columns:1fr; }
+    /* tables with class "cards" become one card per row */
+    table.cards thead { display:none; }
+    table.cards, table.cards tbody { display:block; }
+    table.cards tr { display:block; padding:12px 14px; border-bottom:1px solid var(--line-2); }
+    table.cards tbody tr:last-child { border-bottom:0; }
+    table.cards td { display:block; border:0; padding:3px 0; text-align:right; overflow:hidden; }
+    table.cards td:first-child { text-align:left; padding-bottom:6px; }
+    table.cards td::before { content:attr(data-label); float:left; color:var(--muted); font-size:12.5px; text-align:left; margin-right:14px; }
+    table.cards td .gauge { display:inline-block; width:58%; vertical-align:middle; }
+    table.cards td .spark { display:inline-block; }
+    table.cards td:not([data-label])::before { content:none; }
+    table.cards td:empty { display:none; }
+    table.cards .rowacts { text-align:left; padding-top:8px; } table.cards .rowacts .link { padding:4px 0; }
+    /* stock rows: a compact card with the gauge across the full width */
+    table.cards.stock tr { display:grid; grid-template-columns:1fr auto; gap:4px 12px; }
+    table.cards.stock td { display:block; padding:0; text-align:left; overflow:visible; }
     table.cards.stock td::before { content:none; }
-    table.cards.stock .c-sku { font-size:15px; } table.cards.stock .c-name { color:var(--muted); font-size:13px; }
-    table.cards.stock .c-qty { text-align:right; font-size:15px; }
-    table.cards.stock .c-status { text-align:right; }
-    table.cards.stock .c-loc { grid-column:1 / -1; } table.cards.stock .c-act { grid-column:1 / -1; padding-top:6px; }
+    table.cards.stock td .gauge { display:block; width:100%; }
+    table.cards.stock .c-gauge { width:auto !important; }
     table.cards.stock .hm { display:none; }
-    table.cards.stock .c-sku { grid-area:1 / 1; } table.cards.stock .c-qty { grid-area:1 / 2; }
-    table.cards.stock .c-name { grid-area:2 / 1; } table.cards.stock .c-status { grid-area:2 / 2; }
-    table.cards.stock .c-loc { grid-area:3 / 1 / 4 / 3; } table.cards.stock .c-act { grid-area:4 / 1 / 5 / 3; }
-    .stock .c-act button.link { padding:6px 12px 6px 0; }
-    details.dd .menu { min-width:180px; }
+    table.cards.stock .c-prod { grid-area:1 / 1; } table.cards.stock .c-qty { grid-area:1 / 2; text-align:right; }
+    table.cards.stock .c-gauge { grid-area:2 / 1 / 3 / 3; padding:6px 0 2px; }
+    table.cards.stock .c-status { grid-area:3 / 1; } table.cards.stock .rowacts { grid-area:3 / 2; padding:0; }
   }
 </style>
 </head>
 <body>
-<header>
-  <h1>VINEX Fasteners &middot; Stock</h1>
-  <nav id="nav"></nav>
-  <div class="operator" id="whoami"></div>
-</header>
-<main id="view"></main>
+<div class="app">
+  <aside class="side">
+    <div class="brand" id="brand"></div>
+    <nav id="nav" aria-label="Main"></nav>
+    <div class="me" id="whoami"></div>
+  </aside>
+  <div>
+    <div class="topbar"><div class="brand" id="brand-m"></div><div id="whoami-m"></div></div>
+    <main id="view"></main>
+  </div>
+</div>
+<nav class="tabbar" id="tabbar" aria-label="Main"></nav>
 <dialog id="dlg"></dialog>
 <dialog id="scan"><div>
-  <h2 style="margin:0 0 12px;font-size:18px">Scan a barcode or QR code</h2>
+  <h2>Scan a barcode or QR code</h2>
   <div id="reader"></div>
-  <div class="hint" id="scanmsg" style="margin-top:10px"></div>
+  <div class="hint" id="scanmsg" style="margin-top:12px"></div>
   <div class="actions"><button type="button" class="btn" id="scancancel">Cancel</button></div>
 </div></dialog>
-<div id="toast"></div>
+<div id="toast" role="status"></div>
 <div id="login" hidden></div>
 
 <script>
 const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt = n => (n == null ? '' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 3 }));
-const money = n => '€' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = n => (n == null ? '' : Number(n).toLocaleString('en-GB', { maximumFractionDigits: 2 }));
+const money = n => '€' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+                set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+
+/* line icons, drawn for this app */
+const ICONS = {
+  hex: '<path d="M12 2.8 20 7.4v9.2l-8 4.6-8-4.6V7.4z"/><circle cx="12" cy="12" r="3.2"/>',
+  home: '<path d="M4 11.5 12 5l8 6.5V20h-5.5v-5h-5v5H4z"/>',
+  stock: '<path d="M3.5 8 12 4l8.5 4v8L12 20l-8.5-4z"/><path d="M3.5 8 12 12l8.5-4M12 12v8"/>',
+  insights: '<path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/>',
+  moves: '<path d="M7 7h12l-3-3M17 17H5l3 3"/>',
+  products: '<path d="M4 4h7l9 9-7 7-9-9z"/><circle cx="8.5" cy="8.5" r="1.4"/>',
+  locations: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
+  users: '<circle cx="9" cy="8" r="3.3"/><path d="M3 19.5c.8-3.3 3.2-5 6-5s5.2 1.7 6 5M15.5 4.8a3.3 3.3 0 0 1 0 6.4M17.5 14.6c1.8.6 3 2.2 3.5 4.9"/>',
+  more: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
+  scan: '<path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3M7 12h10"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>', minus: '<path d="M5 12h14"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
+  download: '<path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l2.5 2.5"/>',
+  out: '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>',
+  chevron: '<path d="m9 6 6 6-6 6"/>',
+};
+const icon = (n, cls = 'i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+const BRAND = `${icon('hex')}<div>Vinex Stock<small>Vinex Fasteners</small></div>`;
 
 async function api(path, opts = {}) {
   const res = await fetch('/api' + path, {
@@ -198,36 +296,43 @@ async function api(path, opts = {}) {
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
 }
-/* close any open dropdown when clicking elsewhere or choosing an item */
 document.addEventListener('click', e => {
-  document.querySelectorAll('details.dd[open]').forEach(d => { if (!d.contains(e.target) || e.target.closest('.menu > *')) d.open = false; });
+  $$('details.dd[open]').forEach(d => { if (!d.contains(e.target) || e.target.closest('.menu > *')) d.open = false; });
 });
-function moreMenu(items) { return `<details class="dd"><summary class="btn">More ▾</summary><div class="menu">${items}</div></details>`; }
+function moreMenu(items, label = 'More') { return `<details class="dd"><summary class="btn">${label}</summary><div class="menu">${items}</div></details>`; }
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600); }
 
-const state = { tab: 'dashboard', user: null, users: [], products: [], locations: [], stock: [], stockFilter: '', lowOnly: false, stockSort: { key: 'sku', dir: 1 }, movQ: '', movKind: '', movProduct: null };
-const TABS = [['dashboard','Dashboard'],['stock','Stock'],['products','Products'],['movements','Movements'],['locations','Locations'],['users','Users']];
+const state = { tab: 'dashboard', user: null, users: [], products: [], locations: [], stock: [], stockFilter: '', lowOnly: false,
+  stockSort: { key: 'sku', dir: 1 }, movQ: '', movKind: '', movProduct: null,
+  lead: store.get('vinex.lead', 14), window: store.get('vinex.window', 90), insAll: false };
+const TABS = [['dashboard','Overview','home'],['stock','Stock','stock'],['insights','Insights','insights'],['movements','Movements','moves'],
+              ['products','Products','products'],['locations','Locations','locations'],['users','Users','users']];
+const PHONE_TABS = ['dashboard', 'stock', 'insights', 'movements'];
 const isAdmin = () => state.user?.role === 'admin';
 const canMove = () => ['admin', 'staff'].includes(state.user?.role);
-const KIND_LABEL = { IN:'Received', OUT:'Issued', ADJUST:'Stocktake adj.', TRANSFER_IN:'Transfer in', TRANSFER_OUT:'Transfer out' };
+const KIND_LABEL = { IN:'Received', OUT:'Issued', ADJUST:'Stocktake', TRANSFER_IN:'Transfer in', TRANSFER_OUT:'Transfer out' };
+const ROLE_LABEL = { admin:'Administrator', staff:'Warehouse staff', viewer:'Read only' };
 
+/* ---------- shell ---------- */
 function renderWho() {
   const u = state.user;
-  $('#whoami').innerHTML = u ? `<details class="dd usermenu"><summary>${esc(u.username)} <span class="rolechip">${esc(u.role)}</span> ▾</summary>
-    <div class="menu"><div class="who">Signed in as ${esc(u.username)}</div><button id="chpw">Change password</button><button id="logout">Sign out</button></div></details>` : '';
-  if (!u) return;
-  $('#chpw').onclick = passwordDialog;
-  $('#logout').onclick = async () => { try { await api('/logout', { method: 'POST', body: {} }); } catch {} showLogin(); };
+  const items = `<button class="m-pw">${icon('key')}Change password</button><button class="m-out">${icon('out')}Sign out</button>`;
+  $('#whoami').innerHTML = u ? `<details class="dd up"><summary class="who"><span class="avatar">${esc(u.username[0].toUpperCase())}</span>
+      <span><b>${esc(u.username)}</b><span class="r">${ROLE_LABEL[u.role] || esc(u.role)}</span></span></summary><div class="menu">${items}</div></details>` : '';
+  $('#whoami-m').innerHTML = u ? `<details class="dd"><summary aria-label="Account"><span class="avatar">${esc(u.username[0].toUpperCase())}</span></summary><div class="menu">${items}</div></details>` : '';
+  $$('.m-pw').forEach(b => b.onclick = passwordDialog);
+  $$('.m-out').forEach(b => b.onclick = signOut);
 }
+async function signOut() { try { await api('/logout', { method: 'POST', body: {} }); } catch {} showLogin(); }
 function showLogin(msg) {
   state.user = null; renderWho();
   $('#view').innerHTML = ''; if ($('#dlg').open) $('#dlg').close();
   const el = $('#login'); el.hidden = false;
-  el.innerHTML = `<form class="logincard"><h1>VINEX Fasteners</h1><p class="muted">Stock management &middot; sign in</p>
+  el.innerHTML = `<form class="logincard"><div class="brand">${BRAND}</div><p>Sign in to manage stock.</p>
     <div class="err" ${msg ? '' : 'hidden'}>${esc(msg || '')}</div>
-    <div class="field"><label>Username</label><input name="username" autocomplete="username" autocapitalize="none" required autofocus></div>
-    <div class="field"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div>
-    <button class="btn primary" style="width:100%;margin-top:6px">Sign in</button></form>`;
+    <div class="field"><label for="lu">Username</label><input id="lu" name="username" autocomplete="username" autocapitalize="none" required autofocus></div>
+    <div class="field"><label for="lp">Password</label><input id="lp" name="password" type="password" autocomplete="current-password" required></div>
+    <button class="btn dark">Sign in</button></form>`;
   const form = $('form', el);
   form.onsubmit = async e => {
     e.preventDefault();
@@ -238,12 +343,29 @@ function showLogin(msg) {
     } catch (ex) { err.textContent = ex.message; err.hidden = false; }
   };
 }
-
+const visibleTabs = () => TABS.filter(([k]) => k !== 'users' || isAdmin());
+function go(tab) { state.tab = tab; show(); window.scrollTo(0, 0); }
 function renderNav() {
-  $('#nav').innerHTML = TABS.filter(([k]) => k !== 'users' || isAdmin()).map(([k, l]) => `<button data-tab="${k}" class="${state.tab === k ? 'active' : ''}">${l}</button>`).join('');
-  $('#nav').querySelectorAll('button').forEach(b => b.onclick = () => { state.tab = b.dataset.tab; show(); });
+  $('#nav').innerHTML = visibleTabs().map(([k, l, ic]) => `<button data-tab="${k}" class="${state.tab === k ? 'active' : ''}" ${state.tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${l}</button>`).join('');
+  const inMore = !PHONE_TABS.includes(state.tab);
+  $('#tabbar').innerHTML = PHONE_TABS.map(k => TABS.find(t => t[0] === k)).map(([k, l, ic]) => `<button data-tab="${k}" class="${state.tab === k ? 'active' : ''}">${icon(ic)}${l === 'Overview' ? 'Home' : l}</button>`).join('')
+    + `<button data-more class="${inMore ? 'active' : ''}">${icon('more')}More</button>`;
+  $$('#nav button, #tabbar button[data-tab]').forEach(b => b.onclick = () => go(b.dataset.tab));
+  $('#tabbar [data-more]').onclick = moreSheet;
 }
-
+function moreSheet() {
+  const dlg = $('#dlg');
+  const extra = visibleTabs().filter(([k]) => !PHONE_TABS.includes(k));
+  dlg.innerHTML = `<div class="sheet"><h2>More</h2><div class="menu-list">
+    ${extra.map(([k, l, ic]) => `<button data-tab="${k}">${icon(ic)}${l}</button>`).join('')}
+    <button class="m-pw">${icon('key')}Change password</button><button class="m-out">${icon('out')}Sign out</button></div>
+    <div class="actions"><button class="btn" data-close>Close</button></div></div>`;
+  $$('[data-tab]', dlg).forEach(b => b.onclick = () => { dlg.close(); go(b.dataset.tab); });
+  $('.m-pw', dlg).onclick = () => { dlg.close(); passwordDialog(); };
+  $('.m-out', dlg).onclick = () => { dlg.close(); signOut(); };
+  $('[data-close]', dlg).onclick = () => dlg.close();
+  dlg.showModal();
+}
 async function loadBase() {
   [state.products, state.locations, state.stock] = await Promise.all([api('/products?all=1'), api('/locations'), api('/stock')]);
 }
@@ -251,18 +373,28 @@ async function show() {
   renderNav();
   try { await loadBase(); await VIEWS[state.tab](); } catch (e) { $('#view').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
 }
+const phead = (title, sub, acts = '') => `<div class="phead"><div class="grow"><h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ''}</div>${acts ? `<div class="acts">${acts}</div>` : ''}</div>`;
 
 /* ---------- shared ---------- */
-const statusBadge = s => s === 'out' ? '<span class="badge out">Out of stock</span>' : s === 'low' ? '<span class="badge low">Low</span>' : '<span class="badge ok">OK</span>';
-const kindCell = r => { const cls = r.qty > 0 ? (r.kind === 'ADJUST' ? 'adj' : 'in') : (r.kind === 'ADJUST' ? 'adj' : 'outq'); return `<span class="${cls}">${KIND_LABEL[r.kind] || r.kind}</span>`; };
+const STATUS = { ok: ['ok', 'In stock'], low: ['low', 'Low'], out: ['out', 'Out of stock'] };
+const statusPill = s => `<span class="pill ${STATUS[s][0]}">${STATUS[s][1]}</span>`;
+function gauge(s) {
+  const min = s.min_stock || 0, scale = Math.max(s.total, min * 2, 1);
+  const w = Math.max(0, Math.min(100, s.total / scale * 100)), m = min ? min / scale * 100 : null;
+  return `<div class="gauge" title="${fmt(s.total)} on hand${min ? `, minimum ${fmt(min)}` : ''}"><span class="${s.status === 'ok' ? '' : s.status}" style="width:${w}%"></span>${m != null ? `<i style="left:${m}%"></i>` : ''}</div>`;
+}
+const kindClass = r => r.kind === 'ADJUST' ? 'adj' : r.qty > 0 ? 'in' : 'outq';
+const kindCell = r => `<span class="${kindClass(r)} strong">${KIND_LABEL[r.kind] || r.kind}</span>`;
+const signed = n => (n > 0 ? '+' : n < 0 ? '−' : '') + fmt(Math.abs(n));
+const when = s => { const d = new Date(s.replace(' ', 'T')); return isNaN(d) ? s : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
 const movRows = list => list.map(r => `<tr class="${r.reversed || r.reversal_of ? 'dim' : ''}">
-  <td data-label="Date" class="muted small" style="white-space:nowrap">${esc(r.created_at)}</td>
-  <td data-label="Type">${kindCell(r)}${r.reversal_of ? ' <span class="badge rev">reversal</span>' : ''}${r.reversed ? ' <span class="badge rev">reversed</span>' : ''}</td>
-  <td data-label="Product"><b>${esc(r.sku)}</b><div class="muted small">${esc(r.product)}</div></td><td data-label="Location">${esc(r.location)}</td>
-  <td data-label="Qty" class="num ${r.qty > 0 ? 'in' : 'outq'}">${r.qty > 0 ? '+' : ''}${fmt(r.qty)} <span class="muted small">${esc(r.unit)}</span></td>
+  <td data-label="When" class="muted small" style="white-space:nowrap">${esc(when(r.created_at))}</td>
+  <td data-label="Type">${kindCell(r)}${r.reversal_of ? ' <span class="tag">reversal</span>' : ''}${r.reversed ? ' <span class="tag">reversed</span>' : ''}</td>
+  <td data-label="Product"><div class="sku">${esc(r.sku)}</div><div class="sub">${esc(r.product)}</div></td><td data-label="Location">${esc(r.location)}</td>
+  <td data-label="Qty" class="num"><span class="qty ${kindClass(r)}">${signed(r.qty)}</span><span class="unit">${esc(r.unit)}</span></td>
   <td data-label="Lot">${esc(r.lot)}</td><td data-label="Reference">${esc(r.reference)}</td><td data-label="Note" class="small muted">${esc(r.note)}</td><td data-label="By" class="small">${esc(r.operator)}</td>
-  ${isAdmin() ? `<td>${!r.reversed && !r.reversal_of ? `<button class="link" onclick="reverseDialog(${r.id})">Reverse</button>` : ''}</td>` : ''}</tr>`).join('');
-const movHead = () => '<tr><th>Date</th><th>Type</th><th>Product</th><th>Location</th><th class="num">Qty</th><th>Lot</th><th>Reference</th><th>Note</th><th>By</th>' + (isAdmin() ? '<th></th>' : '') + '</tr>';
+  ${isAdmin() ? `<td class="rowacts">${!r.reversed && !r.reversal_of ? `<button class="link" onclick="reverseDialog(${r.id})">Reverse</button>` : ''}</td>` : ''}</tr>`).join('');
+const movHead = () => '<tr><th>When</th><th>Type</th><th>Product</th><th>Location</th><th class="num">Qty</th><th>Lot</th><th>Reference</th><th>Note</th><th>By</th>' + (isAdmin() ? '<th></th>' : '') + '</tr>';
 
 function openDialog(html, onSubmit) {
   const dlg = $('#dlg');
@@ -280,67 +412,99 @@ function openDialog(html, onSubmit) {
   return { dlg, form };
 }
 
-/* ---------- dashboard ---------- */
+/* ---------- overview ---------- */
 async function viewDashboard() {
   const d = await api('/dashboard');
-  $('#view').innerHTML = `
-    <div class="toolbar"><h2 style="margin:0">Dashboard</h2><span class="spacer"></span>
-      ${canMove() ? `<div class="acts"><button class="btn primary" onclick="movementDialog('IN')">+ Receive stock</button>
-      <button class="btn" onclick="movementDialog('OUT')">Issue stock</button></div>` : ''}</div>
-    <div class="cards">
-      <div class="card stat"><div class="v">${d.products}</div><div class="l">Active products</div></div>
-      <div class="card stat ${d.low_count ? 'warn' : ''}"><div class="v">${d.low_count}</div><div class="l">Low stock</div></div>
-      <div class="card stat ${d.out_count ? 'bad' : ''}"><div class="v">${d.out_count}</div><div class="l">Out of stock</div></div>
-      <div class="card stat"><div class="v">${money(d.stock_value)}</div><div class="l">Stock value (items with cost)</div></div>
-      <div class="card stat"><div class="v">${d.movements_today}</div><div class="l">Movements today</div></div>
+  const attention = d.low_count + d.out_count;
+  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  $('#view').innerHTML = phead('Overview', esc(today), canMove() ? `<button class="btn primary" onclick="movementDialog('IN')">${icon('plus')}Receive</button>
+      <button class="btn" onclick="movementDialog('OUT')">${icon('minus')}Issue</button>` : '') + `
+    <div class="strip" style="--n:4">
+      <div><div class="v">${fmt(d.products)}</div><div class="l">Active products</div></div>
+      <div class="${d.out_count ? 'bad' : attention ? 'warn' : ''}"><div class="v">${attention}</div><div class="l">At or below minimum${d.out_count ? `, ${d.out_count} out of stock` : ''}</div></div>
+      <div><div class="v">${money(d.stock_value)}</div><div class="l">Stock value</div></div>
+      <div><div class="v">${d.movements_today}</div><div class="l">Movements today</div></div>
     </div>
-    <div class="grid2" style="margin-bottom:14px">
-      <div class="card"><h3>Activity &ndash; last 14 days</h3>${activityChart(d.activity)}</div>
-      <div class="card"><h3>Needs reordering${d.low.length ? ' <a class="dl" href="/api/export/reorder.csv">Download list (CSV)</a>' : ''}</h3>${d.low.length ? `<table><thead><tr><th>Product</th><th class="num">On hand</th><th class="num">Minimum</th><th></th></tr></thead><tbody>${d.low.map(s => `
-        <tr><td><b>${esc(s.sku)}</b><div class="muted small">${esc(s.name)}</div></td><td class="num">${fmt(s.total)} ${esc(s.unit)}</td><td class="num">${fmt(s.min_stock)}</td><td>${statusBadge(s.status)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Nothing below minimum.</div>'}</div>
-    </div>
-    <div class="grid2" style="grid-template-columns:1fr">
-      <div class="card"><h3>Recent movements</h3>${d.recent.length ? `<table><thead><tr><th>When</th><th>Product</th><th class="num">Qty</th></tr></thead><tbody>${d.recent.slice(0, 8).map(r => `
-        <tr><td class="muted small">${esc(r.created_at)}</td><td>${kindCell(r)} <b>${esc(r.sku)}</b></td><td class="num ${r.qty > 0 ? 'in' : 'outq'}">${r.qty > 0 ? '+' : ''}${fmt(r.qty)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No movements yet.</div>'}</div>
+    <div class="cols wide-left">
+      <section class="panel"><div class="ph"><h2>Needs reordering</h2>${d.low.length ? `<a href="/api/export/reorder.csv">Download list</a>` : ''}</div>
+        ${d.low.length ? `<div class="tablewrap"><table class="cards stock"><thead><tr><th>Product</th><th>Level</th><th class="num">On hand</th></tr></thead><tbody>${d.low.map(s => `
+          <tr><td class="c-prod"><div class="sku">${esc(s.sku)}</div><div class="sub">${esc(s.name)}</div></td><td class="c-gauge" style="width:30%">${gauge(s)}</td>
+          <td class="num c-qty"><span class="qty">${fmt(s.total)}</span><span class="unit">${esc(s.unit)}</span><div class="sub">minimum ${fmt(s.min_stock)}</div></td></tr>`).join('')}</tbody></table></div>`
+        : '<div class="empty"><b>Nothing below minimum</b>Every product is above its alert level.</div>'}
+      </section>
+      <div class="stack">
+        <section class="panel"><div class="ph"><h2>Activity, last 14 days</h2></div><div class="pb" id="chart"></div></section>
+        <section class="panel"><div class="ph"><h2>Latest movements</h2><button class="link" onclick="go('movements')">See all</button></div>
+          ${d.recent.length ? `<ul class="feed">${d.recent.slice(0, 6).map(r => `<li><span class="k ${kindClass(r)}">${r.qty > 0 ? '+' : '−'}</span>
+            <div><div class="sku">${esc(r.sku)}</div><div class="t">${KIND_LABEL[r.kind]} · ${esc(when(r.created_at))}</div></div>
+            <div class="num"><span class="qty ${kindClass(r)}">${signed(r.qty)}</span><span class="unit">${esc(r.unit)}</span></div></li>`).join('')}</ul>`
+          : '<div class="empty"><b>No movements yet</b>Receive stock to get started.</div>'}
+        </section>
+      </div>
     </div>`;
+  drawActivity($('#chart'), d.activity);
+}
+function drawActivity(el, a) {
+  if (!a || a.every(x => !x.in && !x.out)) { el.innerHTML = '<div class="empty" style="padding:20px"><b>No receipts or issues</b>Bars appear here as stock moves.</div>'; return; }
+  const max = Math.max(1, ...a.flatMap(x => [x.in, x.out]));
+  const W = Math.max(260, el.clientWidth - 36), H = 140, pad = 4, bw = (W - 2 * pad) / a.length, plot = H - 26;
+  const bars = a.map((x, i) => {
+    const x0 = pad + i * bw, hi = (x.in / max) * plot, ho = (x.out / max) * plot, bwid = Math.max(2, bw / 2 - 3);
+    const showLabel = a.length <= 14 && (i % (W < 400 ? 2 : 1) === 0 || i === a.length - 1);
+    return `<g><title>${esc(x.date)}: ${x.in} received, ${x.out} issued</title>
+      <rect x="${x0 + 2}" y="${H - 20 - hi}" width="${bwid}" height="${hi}" rx="2" fill="var(--ok)"/>
+      <rect x="${x0 + bw / 2 + 1}" y="${H - 20 - ho}" width="${bwid}" height="${ho}" rx="2" fill="var(--navy)"/>
+      ${showLabel ? `<text x="${x0 + bw / 2}" y="${H - 5}" text-anchor="middle" font-size="11" fill="var(--faint)">${+x.date.slice(8)}</text>` : ''}</g>`;
+  }).join('');
+  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Movements per day, last 14 days">
+      <line x1="0" x2="${W}" y1="${H - 20}" y2="${H - 20}" stroke="var(--line)"/>${bars}</svg>
+    <div class="legend"><span><i style="background:var(--ok)"></i>Received</span><span><i style="background:var(--navy)"></i>Issued</span><span>Busiest day: ${max} movements</span></div>`;
 }
 
 /* ---------- stock ---------- */
 function stockTable() {
   const q = state.stockFilter.toLowerCase();
   const rows = state.stock.filter(s => (!state.lowOnly || s.status !== 'ok') &&
-    (!q || [s.sku, s.name, s.category, s.spec].join(' ').toLowerCase().includes(q)));
-  if (!rows.length) return '<div class="empty">No products match.</div>';
+    (!q || [s.sku, s.name, s.category, s.spec, s.barcode].join(' ').toLowerCase().includes(q)));
+  if (!rows.length) return state.stock.length ? '<div class="empty"><b>No products match</b>Try another search or clear the filter.</div>'
+    : '<div class="empty"><b>No products yet</b>Add products under Products, or import a CSV.</div>';
   const { key, dir } = state.stockSort, by = SORTERS[key];
   rows.sort((a, b) => { const x = by(a), y = by(b); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
-  return `<table class="cards stock"><thead><tr>${sortHead('SKU', 'sku')}${sortHead('Product', 'name')}${sortHead('Category', 'category')}${sortHead('On hand', 'total', 'num')}<th class="num">Min</th>${sortHead('Status', 'status')}<th>Locations</th><th></th></tr></thead><tbody>${rows.map(s => `
-    <tr><td class="c-sku"><b>${esc(s.sku)}</b></td><td class="c-name">${esc(s.name)}<div class="muted small">${esc(s.spec)}</div></td><td class="hm">${esc(s.category)}</td>
-    <td class="num c-qty"><b>${fmt(s.total)}</b> <span class="muted small">${esc(s.unit)}</span></td><td class="num muted hm">${s.min_stock ? fmt(s.min_stock) : ''}</td>
-    <td class="c-status">${statusBadge(s.status)}</td>
-    <td class="locs small c-loc">${s.locations.map(l => `<span>${esc(l.location)}: <b>${fmt(l.qty)}</b></span>`).join('') || '<span class="muted">-</span>'}</td>
-    <td class="c-act" style="white-space:nowrap"><button class="link" onclick="lotsDialog(${s.id})">Lots</button> &middot; <button class="link" onclick="showHistory(${s.id})">History</button>${canMove() ? ` &middot; <button class="link" onclick="movementDialog('IN',${s.id})">Receive</button> &middot; <button class="link" onclick="movementDialog('OUT',${s.id})">Issue</button>` : ''}</td></tr>`).join('')}</tbody></table>`;
+  return `<table class="cards stock"><thead><tr>${sortHead('Product', 'sku')}${sortHead('Category', 'category')}<th>Level</th>${sortHead('On hand', 'total', 'num')}${sortHead('Status', 'status')}<th></th></tr></thead><tbody>${rows.map(s => `
+    <tr><td class="c-prod"><div class="sku">${esc(s.sku)}</div><div class="sub">${esc(s.name)}${s.spec ? ` · ${esc(s.spec)}` : ''}</div></td>
+    <td class="hm muted">${esc(s.category)}</td>
+    <td class="c-gauge" style="width:18%">${gauge(s)}</td>
+    <td class="num c-qty"><span class="qty">${fmt(s.total)}</span><span class="unit">${esc(s.unit)}</span>
+      ${s.locations.length > 1 ? `<div class="sub">${s.locations.length} locations</div>` : s.locations.length ? `<div class="sub">${esc(s.locations[0].location)}</div>` : ''}</td>
+    <td class="c-status">${statusPill(s.status)}</td>
+    <td class="rowacts"><button class="link" onclick="lotsDialog(${s.id})">Details</button><button class="link" onclick="showHistory(${s.id})">History</button></td></tr>`).join('')}</tbody></table>`;
 }
 const SORTERS = {
-  sku: s => s.sku.toLowerCase(), name: s => s.name.toLowerCase(), category: s => (s.category || '').toLowerCase(),
+  sku: s => s.sku.toLowerCase(), category: s => (s.category || '').toLowerCase(),
   total: s => s.total, status: s => ({ out: 0, low: 1, ok: 2 }[s.status]),
 };
 function sortHead(label, key, cls = '') {
   const on = state.stockSort.key === key;
-  return `<th class="sortable ${cls}" data-sort="${key}" title="Sort by ${label}">${label}<span class="arr">${on ? (state.stockSort.dir > 0 ? '▲' : '▼') : ''}</span></th>`;
+  return `<th class="sortable ${cls}" data-sort="${key}" title="Sort by ${label}" ${on ? `aria-sort="${state.stockSort.dir > 0 ? 'ascending' : 'descending'}"` : ''}>${label}<span class="arr">${on ? (state.stockSort.dir > 0 ? '▲' : '▼') : ''}</span></th>`;
 }
 function showHistory(pid) {
+  if ($('#dlg').open) $('#dlg').close();
   state.movProduct = state.products.find(p => p.id === pid) || null;
-  state.movQ = ''; state.movKind = ''; state.tab = 'movements'; show();
+  state.movQ = ''; state.movKind = ''; go('movements');
 }
 async function viewStock() {
-  $('#view').innerHTML = `
-    <div class="toolbar"><h2 style="margin:0">Stock on hand</h2><span class="spacer"></span>
-      <div class="inputrow searchrow"><input type="search" id="sf" placeholder="Search SKU, name, spec…" value="${esc(state.stockFilter)}"><button class="btn" onclick="scanToSearch()">Scan</button></div>
-      <label><input type="checkbox" id="lowonly" ${state.lowOnly ? 'checked' : ''}> Low / out only</label>
-      <div class="acts">${canMove() ? `<button class="btn primary" onclick="movementDialog('IN')">Receive</button>
-      <button class="btn" onclick="movementDialog('OUT')">Issue</button>` : ''}
-      ${moreMenu((canMove() ? `<button onclick="movementDialog('TRANSFER')">Transfer</button><button onclick="movementDialog('ADJUST')">Stocktake</button>` : '') + `<a href="/api/export/stock.csv">Export CSV</a>`)}</div></div>
-    <div class="tablewrap" id="stocktable">${stockTable()}</div>`;
+  const low = state.stock.filter(s => s.status !== 'ok').length;
+  $('#view').innerHTML = phead('Stock', `${state.stock.length} products${low ? `, ${low} at or below minimum` : ''}`, canMove() ? `
+      <button class="btn primary" onclick="movementDialog('IN')">${icon('plus')}Receive</button>
+      <button class="btn" onclick="movementDialog('OUT')">${icon('minus')}Issue</button>
+      ${moreMenu(`<button onclick="movementDialog('TRANSFER')">Transfer between locations</button><button onclick="movementDialog('ADJUST')">Stocktake count</button><a href="/api/export/stock.csv">Download stock (CSV)</a>`)}`
+      : `<a class="btn" href="/api/export/stock.csv">${icon('download')}Download CSV</a>`) + `
+    <div class="filters">
+      <div class="search">${icon('search')}<input type="search" id="sf" placeholder="Search SKU, name, spec, barcode" aria-label="Search stock" value="${esc(state.stockFilter)}"></div>
+      <button class="btn" onclick="scanToSearch()">${icon('scan')}Scan</button>
+      <label class="check"><input type="checkbox" id="lowonly" ${state.lowOnly ? 'checked' : ''}> Only low or out of stock</label>
+    </div>
+    <section class="panel tablewrap" id="stocktable">${stockTable()}</section>`;
   $('#stocktable').onclick = e => {
     const th = e.target.closest('th[data-sort]'); if (!th) return;
     const k = th.dataset.sort;
@@ -351,17 +515,20 @@ async function viewStock() {
   $('#lowonly').onchange = e => { state.lowOnly = e.target.checked; $('#stocktable').innerHTML = stockTable(); };
 }
 async function lotsDialog(pid) {
-  const p = state.products.find(x => x.id === pid);
+  const p = state.products.find(x => x.id === pid), s = state.stock.find(x => x.id === pid);
   const rows = await api('/stock/detail?product_id=' + pid);
   const dlg = $('#dlg');
-  dlg.innerHTML = `<form method="dialog"><h2>${esc(p.sku)} <span class="muted" style="font-weight:400">by location &amp; lot</span></h2>
-    ${rows.length ? `<table><thead><tr><th>Location</th><th>Lot / heat no.</th><th class="num">Qty</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.location)}</td><td>${esc(r.lot) || '<span class="muted">(no lot)</span>'}</td><td class="num">${fmt(r.qty)} ${esc(p.unit)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No stock.</div>'}
-    <div class="actions"><button class="btn primary">Close</button></div></form>`;
+  dlg.innerHTML = `<form method="dialog"><h2>${esc(p.sku)}</h2>
+    <p class="muted" style="margin:-10px 0 16px">${esc(p.name)}${p.spec ? ` · ${esc(p.spec)}` : ''}</p>
+    ${s ? `<div style="margin-bottom:16px">${gauge(s)}<div class="small muted" style="margin-top:6px">${fmt(s.total)} ${esc(p.unit)} on hand${p.min_stock ? `, minimum ${fmt(p.min_stock)}` : ''}</div></div>` : ''}
+    ${rows.length ? `<div class="panel tablewrap"><table><thead><tr><th>Location</th><th>Lot / heat no.</th><th class="num">Qty</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.location)}</td><td>${esc(r.lot) || '<span class="muted">No lot</span>'}</td><td class="num"><span class="qty">${fmt(r.qty)}</span><span class="unit">${esc(p.unit)}</span></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No stock.</div>'}
+    <div class="actions"><button type="button" class="btn" onclick="showHistory(${pid})">History</button>
+      ${canMove() ? `<button type="button" class="btn" onclick="$('#dlg').close();movementDialog('OUT',${pid})">Issue</button><button type="button" class="btn primary" onclick="$('#dlg').close();movementDialog('IN',${pid})">Receive</button>` : '<button class="btn primary">Close</button>'}</div></form>`;
   dlg.showModal();
 }
 
 /* ---------- movement dialog ---------- */
-const MOVE_TITLE = { IN:'Receive stock', OUT:'Issue stock', TRANSFER:'Transfer between locations', ADJUST:'Stocktake (set counted quantity)' };
+const MOVE_TITLE = { IN:'Receive stock', OUT:'Issue stock', TRANSFER:'Transfer between locations', ADJUST:'Stocktake count' };
 const productLabel = p => `${p.sku} — ${p.name}`;
 function movementDialog(kind, presetPid) {
   const active = state.products.filter(p => p.active);
@@ -369,22 +536,22 @@ function movementDialog(kind, presetPid) {
   const preset = active.find(p => p.id === presetPid);
   const { form } = openDialog(`<form>
     <h2>${MOVE_TITLE[kind]}</h2>
-    <div class="field"><label>Product</label><div class="inputrow"><input name="product" list="plist" required autocomplete="off" placeholder="Type SKU or name…" value="${preset ? esc(productLabel(preset)) : ''}"><button type="button" class="btn" data-scan>Scan</button></div>
+    <div class="field"><label>Product</label><div class="inputrow"><input name="product" list="plist" required autocomplete="off" placeholder="Type SKU or name" value="${preset ? esc(productLabel(preset)) : ''}"><button type="button" class="btn" data-scan>${icon('scan')}Scan</button></div>
       <datalist id="plist">${active.map(p => `<option value="${esc(productLabel(p))}">`).join('')}</datalist></div>
     <div class="two">
       <div class="field"><label>${kind === 'TRANSFER' ? 'From location' : 'Location'}</label><select name="location_id">${locOpts()}</select></div>
       ${kind === 'TRANSFER' ? `<div class="field"><label>To location</label><select name="to_location_id">${locOpts(state.locations.filter(l => l.active)[1]?.id)}</select></div>` : '<div></div>'}
     </div>
     <div class="two">
-      <div class="field"><label>${kind === 'ADJUST' ? 'Counted quantity' : 'Quantity'}</label><input name="${kind === 'ADJUST' ? 'counted' : 'qty'}" type="number" step="any" min="0" required></div>
+      <div class="field"><label>${kind === 'ADJUST' ? 'Counted quantity' : 'Quantity'}</label><input name="${kind === 'ADJUST' ? 'counted' : 'qty'}" type="number" step="any" min="0" inputmode="decimal" required></div>
       <div class="field"><label>Lot / heat number${kind === 'IN' ? '' : ' (optional)'}</label><input name="lot" list="lots" autocomplete="off"><datalist id="lots"></datalist></div>
     </div>
     <div class="hint" id="avail"></div>
     <div class="two">
-      <div class="field"><label>Reference (order, WO, delivery note)</label><input name="reference"></div>
+      <div class="field"><label>Reference (order, work order, delivery note)</label><input name="reference"></div>
       <div class="field"><label>Note</label><input name="note"></div>
     </div>
-    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save</button></div>
+    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">${{ IN: 'Receive', OUT: 'Issue', TRANSFER: 'Transfer', ADJUST: 'Save count' }[kind]}</button></div>
   </form>`, async (v, f) => {
     const p = findProduct(v.product);
     if (!p) throw new Error('Pick a product from the list');
@@ -398,7 +565,7 @@ function movementDialog(kind, presetPid) {
     const p = findProduct(form.product.value);
     if (!p) { $('#avail').textContent = ''; return; }
     const r = await api(`/availability?product_id=${p.id}&location_id=${form.location_id.value}&lot=${encodeURIComponent(form.lot.value)}`);
-    $('#avail').innerHTML = `Currently in this location${form.lot.value ? ' / lot' : ''}: <b>${fmt(r.qty)} ${esc(p.unit)}</b>`;
+    $('#avail').innerHTML = `In this location${form.lot.value ? ' and lot' : ''} now: <b>${fmt(r.qty)} ${esc(p.unit)}</b>`;
   };
   const fillLots = async () => {
     const p = findProduct(form.product.value);
@@ -413,16 +580,83 @@ function findProduct(val) {
   return state.products.find(p => p.active && (productLabel(p).toLowerCase() === v || p.sku.toLowerCase() === v));
 }
 
+/* ---------- insights ---------- */
+const INS = { order_now: ['out', 'Order now'], watch: ['low', 'Order soon'], ok: ['ok', 'Enough'], no_demand: ['off', 'No demand'] };
+function spark(v) {
+  const W = 96, H = 26, max = Math.max(...v, 1), step = W / (v.length - 1 || 1);
+  const pts = v.map((y, i) => `${(i * step).toFixed(1)},${(H - 2 - (y / max) * (H - 4)).toFixed(1)}`).join(' ');
+  return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polygon points="0,${H} ${pts} ${W},${H}" fill="#e6eef6"/><polyline points="${pts}" fill="none" stroke="var(--navy)" stroke-width="1.5"/></svg>`;
+}
+const rate = n => !n ? '—' : n >= 10 ? fmt(Math.round(n)) : fmt(Math.round(n * 10) / 10);
+const shortDate = s => new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+const days = n => n == null ? '—' : n === 0 ? 'None left' : n === 1 ? '1 day' : `${fmt(n)} days`;
+async function viewInsights() {
+  const q = `lead_days=${state.lead}&window=${state.window}`;
+  const d = await api('/insights?' + q), s = d.summary;
+  const action = d.items.filter(i => i.status === 'order_now' || i.status === 'watch');
+  const list = state.insAll || !action.length ? d.items : action;
+  $('#view').innerHTML = phead('Insights', `Based on issues over the last ${d.params.window} days`,
+      `<a class="btn" href="/api/export/insights.csv?${q}">${icon('download')}Download CSV</a>`) + `
+    <div class="filters">
+      <label class="check">Supplier lead time <input type="number" id="lead" min="1" max="365" value="${state.lead}" style="width:72px"> days</label>
+      <label class="check">History <select id="win">${[30, 90, 180, 365].map(w => `<option value="${w}" ${w === state.window ? 'selected' : ''}>${w} days</option>`).join('')}</select></label>
+    </div>
+    ${s.limited_history ? `<div class="note">${s.limited_history === s.products ? 'All' : s.limited_history} of ${s.products} products have less than 4 weeks of history. The numbers get more reliable as issues are recorded.</div>` : ''}
+    <div class="strip" style="--n:4">
+      <div class="${s.order_now ? 'bad' : ''}"><div class="v">${s.order_now}</div><div class="l">To order now${s.watch ? `, ${s.watch} soon` : ''}</div></div>
+      <div><div class="v">${s.median_cover_days == null ? '—' : days(s.median_cover_days)}</div><div class="l">Typical stock cover</div></div>
+      <div class="${s.slow_count ? 'warn' : ''}"><div class="v">${money(s.slow_value)}</div><div class="l">In slow stock (${s.slow_count} ${s.slow_count === 1 ? 'product' : 'products'})</div></div>
+      <div class="${s.anomalies ? 'warn' : ''}"><div class="v">${s.anomalies}</div><div class="l">Unusual movements</div></div>
+    </div>
+    <section class="panel" style="margin-bottom:16px"><div class="ph"><h2>Reorder advice</h2>
+      ${action.length ? `<div class="seg" role="group" aria-label="Show"><button data-all="0" class="${!state.insAll ? 'on' : ''}">Needs action (${action.length})</button><button data-all="1" class="${state.insAll ? 'on' : ''}">All products</button></div>` : ''}</div>
+      <div class="tablewrap"><table class="cards"><thead><tr><th>Product</th><th>Advice</th><th class="num">On hand</th><th class="num">Used per day</th><th class="num">Lasts</th><th>Last 30 days</th><th class="num">Reorder at</th><th class="num">Order</th><th title="ABC: share of usage value. XYZ: how steady the demand is.">Class</th></tr></thead><tbody>
+      ${list.map(i => `<tr><td><div class="sku">${esc(i.sku)}</div><div class="sub">${esc(i.name)}</div></td>
+        <td data-label="Advice"><span class="pill ${INS[i.status][0]}">${INS[i.status][1]}</span></td>
+        <td data-label="On hand" class="num"><span class="qty">${fmt(i.on_hand)}</span><span class="unit">${esc(i.unit)}</span></td>
+        <td data-label="Used per day" class="num">${rate(i.avg_daily)}${i.trend_pct ? `<div class="sub" title="Last 4 weeks compared with the 4 weeks before">${i.trend_pct > 0 ? '▲' : '▼'} ${Math.abs(i.trend_pct)}%</div>` : ''}</td>
+        <td data-label="Lasts" class="num">${days(i.cover_days)}${i.stockout_date ? `<div class="sub">until ${shortDate(i.stockout_date)}</div>` : ''}</td>
+        <td data-label="Last 30 days">${spark(i.spark)}</td>
+        <td data-label="Reorder at" class="num">${i.avg_daily ? fmt(i.reorder_point) : '—'}</td>
+        <td data-label="Order" class="num">${i.order_qty ? `<span class="qty">${fmt(i.order_qty)}</span><span class="unit">${esc(i.unit)}</span>` : '—'}</td>
+        <td data-label="Class">${i.abc || i.xyz ? `<span class="tag">${i.abc || '–'}${i.xyz || ''}</span>` : ''}${i.limited ? ' <span class="tag" title="Less than 4 weeks of history">new</span>' : ''}</td></tr>`).join('')}
+      </tbody></table></div></section>
+    <div class="cols">
+      <section class="panel"><div class="ph"><h2>Slow-moving stock</h2></div>
+        ${d.slow.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Product</th><th class="num">On hand</th><th>Last issued</th><th class="num">Value</th></tr></thead><tbody>${d.slow.map(r => `
+          <tr><td><div class="sku">${esc(r.sku)}</div><div class="sub">${esc(r.name)}</div></td><td data-label="On hand" class="num"><span class="qty">${fmt(r.on_hand)}</span><span class="unit">${esc(r.unit)}</span></td>
+          <td data-label="Last issued" class="muted">${r.last_issue ? shortDate(r.last_issue) : 'Never'}</td><td data-label="Value" class="num">${r.value_on_hand ? money(r.value_on_hand) : '—'}</td></tr>`).join('')}</tbody></table></div>`
+        : `<div class="empty"><b>No slow stock</b>Every product in stock was issued in the last ${d.params.slow_days} days.</div>`}</section>
+      <section class="panel"><div class="ph"><h2>Unusual movements</h2>${d.anomalies.length > 6 && !state.anomAll ? `<button class="link" data-anom>Show all ${d.anomalies.length}</button>` : ''}</div>
+        ${d.anomalies.length ? `<ul class="feed">${d.anomalies.slice(0, state.anomAll ? 99 : 6).map(a => `<li><span class="k ${a.kind === 'ADJUST' ? 'adj' : 'outq'}">!</span>
+          <div><div class="sku">${esc(a.sku)}</div><div class="t">${esc(a.reason)} · ${shortDate(a.date)}${a.operator ? ` · ${esc(a.operator)}` : ''}</div></div>
+          <div class="num"><span class="qty ${a.kind === 'ADJUST' ? 'adj' : 'outq'}">${signed(a.kind === 'ADJUST' ? a.qty : -a.qty)}</span><span class="unit">${esc(a.unit)}</span></div></li>`).join('')}</ul>`
+        : '<div class="empty"><b>Nothing unusual</b>Very large issues and big stocktake losses show up here.</div>'}</section>
+    </div>
+    <details class="how"><summary>How these numbers are worked out</summary><ul>
+      <li><b>Used per day</b> is the average issued per day, counting days with no issues. Reversed issues, transfers and stocktakes don't count as use. The arrow compares the last 4 weeks with the 4 weeks before.</li>
+      <li><b>Lasts</b> is stock on hand divided by use per day.</li>
+      <li><b>Reorder at</b> is the use during the supplier lead time (${d.params.lead_days} days), plus safety stock for ${d.params.service_level}% of lead times without running out, based on how much daily use varies.</li>
+      <li><b>Order</b> brings stock back up to the reorder point plus ${d.params.order_cycle_days} days of use, rounded up.</li>
+      <li><b>Class</b>: A products make up the first 80% of usage value, B the next 15%, C the rest. X means steady weekly demand, Y variable, Z irregular.</li>
+      <li><b>Slow-moving</b> means in stock but not issued for ${d.params.slow_days} days. <b>Unusual movements</b> are issues far above that product's typical size, and stocktakes that removed 2% or more of the stock.</li>
+    </ul></details>`;
+  const reload = () => { store.set('vinex.lead', state.lead); store.set('vinex.window', state.window); viewInsights().catch(e => toast(e.message)); };
+  $('#lead').onchange = e => { const v = +e.target.value; if (v >= 1 && v <= 365) { state.lead = v; reload(); } };
+  $('#win').onchange = e => { state.window = +e.target.value; reload(); };
+  $('[data-anom]')?.addEventListener('click', () => { state.anomAll = true; viewInsights(); });
+  $$('[data-all]').forEach(b => b.onclick = () => { state.insAll = b.dataset.all === '1'; viewInsights(); });
+}
+
 /* ---------- products ---------- */
 async function viewProducts() {
-  $('#view').innerHTML = `
-    <div class="toolbar"><h2 style="margin:0">Products</h2><span class="spacer"></span>
-      ${isAdmin() ? `<div class="acts"><button class="btn primary" onclick="productDialog()">+ New product</button>
-      ${moreMenu(`<button onclick="importDialog('products')">Import products (CSV)</button><button onclick="importDialog('opening-stock')">Import opening stock (CSV)</button>`)}</div>` : ''}</div>
-    <div class="tablewrap">${state.products.length ? `<table class="cards"><thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Spec</th><th>Unit</th><th class="num">Min stock</th><th class="num">Unit cost</th><th>Barcode</th><th>Prodata code</th><th></th></tr></thead><tbody>${state.products.map(p => `
-      <tr><td data-label="SKU"><b>${esc(p.sku)}</b> ${p.active ? '' : '<span class="badge off">inactive</span>'}</td><td data-label="Name">${esc(p.name)}</td><td data-label="Category">${esc(p.category)}</td><td data-label="Spec" class="small">${esc(p.spec)}</td><td data-label="Unit">${esc(p.unit)}</td>
-      <td data-label="Min stock" class="num">${fmt(p.min_stock)}</td><td data-label="Unit cost" class="num">${p.unit_cost != null ? fmt(p.unit_cost) : ''}</td><td data-label="Barcode" class="small">${esc(p.barcode)}</td><td data-label="Prodata code">${esc(p.prodata_code)}</td>
-      <td>${isAdmin() ? `<button class="link" onclick="productDialog(${p.id})">Edit</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No products yet. Add one or import a CSV.</div>'}</div>`;
+  $('#view').innerHTML = phead('Products', `${state.products.length} in the catalogue`, isAdmin() ? `<button class="btn primary" onclick="productDialog()">${icon('plus')}New product</button>
+      ${moreMenu(`<button onclick="importDialog('products')">Import products (CSV)</button><button onclick="importDialog('opening-stock')">Import opening stock (CSV)</button>`)}` : '') + `
+    <section class="panel tablewrap">${state.products.length ? `<table class="cards"><thead><tr><th>Product</th><th>Category</th><th>Spec</th><th>Unit</th><th class="num">Minimum</th><th class="num">Unit cost</th><th>Barcode</th><th>Prodata code</th><th></th></tr></thead><tbody>${state.products.map(p => `
+      <tr><td><div class="sku">${esc(p.sku)} ${p.active ? '' : '<span class="pill off">Inactive</span>'}</div><div class="sub">${esc(p.name)}</div></td><td data-label="Category">${esc(p.category)}</td><td data-label="Spec" class="small">${esc(p.spec)}</td><td data-label="Unit">${esc(p.unit)}</td>
+      <td data-label="Minimum" class="num">${fmt(p.min_stock)}</td><td data-label="Unit cost" class="num">${p.unit_cost != null ? money(p.unit_cost) : ''}</td><td data-label="Barcode" class="small">${esc(p.barcode)}</td><td data-label="Prodata code">${esc(p.prodata_code)}</td>
+      <td class="rowacts">${isAdmin() ? `<button class="link" onclick="productDialog(${p.id})">Edit</button>` : ''}</td></tr>`).join('')}</tbody></table>`
+      : `<div class="empty"><b>No products yet</b>${isAdmin() ? 'Add one, or import your list from a CSV file.' : 'An administrator can add products.'}</div>`}</section>`;
 }
 function productDialog(id) {
   const p = state.products.find(x => x.id === id) || { unit: 'pcs', min_stock: 0, active: 1 };
@@ -433,11 +667,11 @@ function productDialog(id) {
     <div class="two"><div class="field"><label>Category</label><input name="category" list="cats" value="${esc(p.category)}"><datalist id="cats">${[...new Set(state.products.map(x => x.category).filter(Boolean))].map(c => `<option>${esc(c)}</option>`).join('')}</datalist></div>
       <div class="field"><label>Spec (standard, class, finish)</label><input name="spec" value="${esc(p.spec)}"></div></div>
     <div class="two"><div class="field"><label>Minimum stock (alert level)</label><input name="min_stock" type="number" step="any" min="0" value="${p.min_stock ?? 0}"></div>
-      <div class="field"><label>Unit cost (optional)</label><input name="unit_cost" type="number" step="any" min="0" value="${p.unit_cost ?? ''}"></div></div>
-    <div class="field"><label>Barcode / QR value (optional) &ndash; what the scanner reads on the packaging</label><div class="inputrow"><input name="barcode" autocomplete="off" value="${esc(p.barcode)}"><button type="button" class="btn" data-scan>Scan</button></div></div>
-    <div class="field"><label>Prodata item code (optional, for future sync)</label><input name="prodata_code" value="${esc(p.prodata_code)}"></div>
+      <div class="field"><label>Unit cost in € (optional)</label><input name="unit_cost" type="number" step="any" min="0" value="${p.unit_cost ?? ''}"></div></div>
+    <div class="field"><label>Barcode or QR value on the packaging (optional)</label><div class="inputrow"><input name="barcode" autocomplete="off" value="${esc(p.barcode)}"><button type="button" class="btn" data-scan>${icon('scan')}Scan</button></div></div>
+    <div class="field"><label>Prodata item code (optional)</label><input name="prodata_code" value="${esc(p.prodata_code)}"></div>
     ${id ? `<div class="field row"><input type="checkbox" name="active" id="act" ${p.active ? 'checked' : ''}><label for="act">Active</label></div>` : ''}
-    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save</button></div></form>`,
+    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save product</button></div></form>`,
     async (v, f) => {
       const body = { ...v }; if (id) body.active = f.active.checked;
       await api(id ? '/products/' + id : '/products', { method: id ? 'PUT' : 'POST', body });
@@ -449,8 +683,8 @@ function importDialog(kind) {
   const isProducts = kind === 'products';
   openDialog(`<form><h2>${isProducts ? 'Import products' : 'Import opening stock'}</h2>
     <p class="muted">${isProducts
-      ? 'CSV with a header row. Columns: <code>sku</code>, <code>name</code> (required); <code>category</code>, <code>spec</code>, <code>unit</code>, <code>min_stock</code>, <code>unit_cost</code>, <code>barcode</code>, <code>prodata_code</code>. Existing SKUs are updated.'
-      : 'CSV with a header row. Columns: <code>sku</code>, <code>location</code>, <code>qty</code>; <code>lot</code> optional. Unknown locations are created. Run this once when going live.'}</p>
+      ? 'A CSV file with a header row. Required columns: <code>sku</code>, <code>name</code>. Optional: <code>category</code>, <code>spec</code>, <code>unit</code>, <code>min_stock</code>, <code>unit_cost</code>, <code>barcode</code>, <code>prodata_code</code>. Products with an existing SKU are updated.'
+      : 'A CSV file with a header row and the columns <code>sku</code>, <code>location</code>, <code>qty</code>, and optionally <code>lot</code>. New locations are created. Use this once, when going live.'}</p>
     <div class="field"><label>CSV file</label><input type="file" name="file" accept=".csv,text/csv" required></div>
     <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Import</button></div></form>`,
     async (v, f) => {
@@ -462,17 +696,16 @@ function importDialog(kind) {
 
 /* ---------- movements ---------- */
 async function viewMovements() {
-  $('#view').innerHTML = `
-    <div class="toolbar"><h2 style="margin:0">Movements</h2>${state.movProduct ? `<span class="chip">${esc(state.movProduct.sku)}<button type="button" id="clrprod" title="Show all products" aria-label="Show all products">&times;</button></span>` : ''}<span class="spacer"></span>
-      <input type="search" id="mq" placeholder="Search SKU, lot, reference, location…" value="${esc(state.movQ)}">
-      <select id="mk"><option value="">All types</option>${Object.entries(KIND_LABEL).map(([k, l]) => `<option value="${k}" ${state.movKind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
-      <a class="btn" id="mexp" href="#">Export CSV</a></div>
-    <div class="tablewrap" id="movtable"></div>`;
+  $('#view').innerHTML = phead('Movements', 'Every receipt, issue, transfer and stocktake', `<a class="btn" id="mexp" href="#">${icon('download')}Download CSV</a>`) + `
+    <div class="filters">${state.movProduct ? `<span class="chip">${esc(state.movProduct.sku)}<button type="button" id="clrprod" title="Show all products" aria-label="Show all products">&times;</button></span>` : ''}
+      <div class="search">${icon('search')}<input type="search" id="mq" placeholder="Search SKU, lot, reference, location" aria-label="Search movements" value="${esc(state.movQ)}"></div>
+      <select id="mk" aria-label="Type"><option value="">All types</option>${Object.entries(KIND_LABEL).map(([k, l]) => `<option value="${k}" ${state.movKind === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+    <section class="panel tablewrap" id="movtable"></section>`;
   const load = async () => {
     const qs = new URLSearchParams({ q: state.movQ, kind: state.movKind, ...(state.movProduct ? { product_id: state.movProduct.id } : {}) });
     $('#mexp').href = '/api/export/movements.csv?' + qs;
     const rows = await api('/movements?limit=500&' + qs);
-    $('#movtable').innerHTML = rows.length ? `<table class="cards"><thead>${movHead()}</thead><tbody>${movRows(rows)}</tbody></table>` : '<div class="empty">No movements found.</div>';
+    $('#movtable').innerHTML = rows.length ? `<table class="cards"><thead>${movHead()}</thead><tbody>${movRows(rows)}</tbody></table>` : '<div class="empty"><b>No movements found</b>Try another search or type.</div>';
   };
   $('#clrprod')?.addEventListener('click', () => { state.movProduct = null; show(); });
   let timer; $('#mq').oninput = e => { state.movQ = e.target.value; clearTimeout(timer); timer = setTimeout(load, 250); };
@@ -482,18 +715,17 @@ async function viewMovements() {
 
 /* ---------- locations ---------- */
 async function viewLocations() {
-  $('#view').innerHTML = `
-    <div class="toolbar"><h2 style="margin:0">Locations</h2><span class="spacer"></span>${isAdmin() ? `<button class="btn primary" onclick="locationDialog()">+ New location</button>` : ''}</div>
-    <div class="tablewrap"><table><thead><tr><th>Name</th><th>Status</th><th></th></tr></thead><tbody>${state.locations.map(l => `
-      <tr><td><b>${esc(l.name)}</b></td><td>${l.active ? '<span class="badge ok">Active</span>' : '<span class="badge off">Inactive</span>'}</td><td>${isAdmin() ? `<button class="link" onclick="locationDialog(${l.id})">Edit</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
-    <p class="muted small">Examples: warehouse zones, raw-material store, packing area, a rack or bin code. Stock can be moved between locations with Transfer.</p>`;
+  $('#view').innerHTML = phead('Locations', 'Warehouse zones, stores, racks or bins', isAdmin() ? `<button class="btn primary" onclick="locationDialog()">${icon('plus')}New location</button>` : '') + `
+    <section class="panel tablewrap"><table><thead><tr><th>Name</th><th>Status</th><th></th></tr></thead><tbody>${state.locations.map(l => `
+      <tr><td class="strong">${esc(l.name)}</td><td>${l.active ? '<span class="pill ok">Active</span>' : '<span class="pill off">Inactive</span>'}</td><td class="rowacts">${isAdmin() ? `<button class="link" onclick="locationDialog(${l.id})">Edit</button>` : ''}</td></tr>`).join('')}</tbody></table></section>
+    <p class="muted small">Move stock between locations with Transfer, under Stock.</p>`;
 }
 function locationDialog(id) {
   const l = state.locations.find(x => x.id === id) || { active: 1 };
   openDialog(`<form><h2>${id ? 'Edit location' : 'New location'}</h2>
     <div class="field"><label>Name</label><input name="name" required value="${esc(l.name)}"></div>
     ${id ? `<div class="field row"><input type="checkbox" name="active" id="lact" ${l.active ? 'checked' : ''}><label for="lact">Active</label></div>` : ''}
-    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save</button></div></form>`,
+    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save location</button></div></form>`,
     async (v, f) => {
       const body = { name: v.name }; if (id) body.active = f.active.checked;
       await api(id ? '/locations/' + id : '/locations', { method: id ? 'PUT' : 'POST', body });
@@ -504,27 +736,10 @@ function locationDialog(id) {
 /* ---------- reverse a movement (admin) ---------- */
 function reverseDialog(id) {
   openDialog(`<form><h2>Reverse movement #${id}</h2>
-    <p class="muted">Books the opposite movement (both sides of a transfer), so the stock goes back to how it was. The original stays in the history. It is refused if that stock has been used since.</p>
-    <div class="field"><label>Reason (optional)</label><input name="note" placeholder="e.g. wrong quantity entered"></div>
-    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Reverse</button></div></form>`,
+    <p class="muted">This books the opposite movement (both sides of a transfer), so stock goes back to how it was. The original stays in the history. It is refused if that stock has been used since.</p>
+    <div class="field"><label>Reason (optional)</label><input name="note" placeholder="For example: wrong quantity entered"></div>
+    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Reverse movement</button></div></form>`,
     async v => { await api(`/movements/${id}/reverse`, { method: 'POST', body: { note: v.note } }); toast('Movement reversed'); });
-}
-
-/* ---------- dashboard chart ---------- */
-function activityChart(a) {
-  if (!a || a.every(x => !x.in && !x.out)) return '<div class="empty">No receipts or issues in the last 14 days.</div>';
-  const max = Math.max(1, ...a.flatMap(x => [x.in, x.out]));
-  const vw = window.innerWidth, W = Math.round(vw <= 1000 ? vw - 70 : (Math.min(vw, 1280) - 62) / 2 - 34), H = 150, pad = 22, bw = (W - 2 * pad) / a.length, plot = H - 42;
-  const bars = a.map((x, i) => {
-    const x0 = pad + i * bw, hi = (x.in / max) * plot, ho = (x.out / max) * plot;
-    return `<g><title>${esc(x.date)}: ${x.in} received, ${x.out} issued</title>
-      <rect x="${x0 + 3}" y="${H - 22 - hi}" width="${bw / 2 - 4}" height="${hi}" rx="2" fill="var(--ok)"/>
-      <rect x="${x0 + bw / 2 + 1}" y="${H - 22 - ho}" width="${bw / 2 - 4}" height="${ho}" rx="2" fill="var(--accent)"/>
-      <text x="${x0 + bw / 2}" y="${H - 7}" text-anchor="middle" font-size="11" fill="var(--muted)">${esc(x.date.slice(8))}</text></g>`;
-  }).join('');
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Receipts and issues per day, last 14 days">
-      <line x1="${pad}" x2="${W - pad}" y1="${H - 22}" y2="${H - 22}" stroke="var(--line)"/><text x="0" y="12" font-size="11" fill="var(--muted)">${max}</text>${bars}</svg>
-    <div class="legend"><span><i style="background:var(--ok)"></i>Received</span><span><i style="background:var(--accent)"></i>Issued</span><span>movements per day, day of month shown</span></div>`;
 }
 
 /* ---------- barcode / QR scanning with the phone camera ---------- */
@@ -562,7 +777,7 @@ function scanCode() {   // resolves with the scanned text, or null when cancelle
     } catch (e) {
       msg.textContent = (!window.isSecureContext)
         ? 'The camera only works on a secure (https) address.'
-        : 'Could not open the camera. Allow camera access for this site, then try again.';
+        : 'The camera could not start. Allow camera access for this site, then try again.';
     }
   });
 }
@@ -586,22 +801,21 @@ async function scanToSearch() {      // filters the stock list to the scanned pr
 /* ---------- users (admin) & own password ---------- */
 async function viewUsers() {
   state.users = await api('/users');
-  $('#view').innerHTML = `
-    <div class="toolbar"><h2 style="margin:0">Users</h2><span class="spacer"></span><button class="btn primary" onclick="userDialog()">+ New user</button></div>
-    <div class="tablewrap"><table><thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody>${state.users.map(u => `
-      <tr><td><b>${esc(u.username)}</b>${u.id === state.user.id ? ' <span class="muted small">(you)</span>' : ''}</td><td>${esc(u.role)}</td>
-      <td>${u.active ? '<span class="badge ok">Active</span>' : '<span class="badge off">Disabled</span>'}</td><td class="muted small">${esc(u.created_at)}</td>
-      <td><button class="link" onclick="userDialog(${u.id})">Edit</button></td></tr>`).join('')}</tbody></table></div>
-    <p class="muted small"><b>admin</b> – everything, including products, locations, imports and users. <b>staff</b> – view everything and book stock movements. <b>viewer</b> – read only.</p>`;
+  $('#view').innerHTML = phead('Users', 'Who can sign in, and what they can do', `<button class="btn primary" onclick="userDialog()">${icon('plus')}New user</button>`) + `
+    <section class="panel tablewrap"><table class="cards"><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody>${state.users.map(u => `
+      <tr><td><span class="strong">${esc(u.username)}</span>${u.id === state.user.id ? ' <span class="muted small">(you)</span>' : ''}</td><td data-label="Role">${ROLE_LABEL[u.role] || esc(u.role)}</td>
+      <td data-label="Status">${u.active ? '<span class="pill ok">Active</span>' : '<span class="pill off">Blocked</span>'}</td><td data-label="Created" class="muted small">${esc(when(u.created_at))}</td>
+      <td class="rowacts"><button class="link" onclick="userDialog(${u.id})">Edit</button></td></tr>`).join('')}</tbody></table></section>
+    <p class="muted small">Administrator: everything, including products, locations, imports and users. Warehouse staff: see everything and book movements. Read only: see everything.</p>`;
 }
 function userDialog(id) {
   const u = state.users.find(x => x.id === id) || { role: 'staff', active: 1 };
   openDialog(`<form><h2>${id ? 'Edit user' : 'New user'}</h2>
     <div class="field"><label>Username</label><input name="username" required minlength="3" maxlength="32" autocapitalize="none" value="${esc(u.username)}" ${id ? 'disabled' : ''}></div>
-    <div class="field"><label>Role</label><select name="role">${['admin', 'staff', 'viewer'].map(r => `<option ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+    <div class="field"><label>Role</label><select name="role">${['admin', 'staff', 'viewer'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></div>
     <div class="field"><label>${id ? 'New password (leave empty to keep the current one)' : 'Password (at least 8 characters)'}</label><input name="password" type="password" autocomplete="new-password" minlength="8" ${id ? '' : 'required'}></div>
-    ${id ? `<div class="field row"><input type="checkbox" name="active" id="uact" ${u.active ? 'checked' : ''}><label for="uact">Active (untick to block sign-in)</label></div>` : ''}
-    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save</button></div></form>`,
+    ${id ? `<div class="field row"><input type="checkbox" name="active" id="uact" ${u.active ? 'checked' : ''}><label for="uact">Can sign in</label></div>` : ''}
+    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save user</button></div></form>`,
     async (v, f) => {
       if (id) {
         const body = { role: v.role, active: f.active.checked }; if (v.password) body.password = v.password;
@@ -617,15 +831,16 @@ function passwordDialog() {
     <div class="field"><label>Current password</label><input name="current" type="password" autocomplete="current-password" required></div>
     <div class="field"><label>New password (at least 8 characters)</label><input name="new" type="password" autocomplete="new-password" minlength="8" required></div>
     <div class="field"><label>Repeat new password</label><input name="again" type="password" autocomplete="new-password" required></div>
-    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save</button></div></form>`,
+    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Change password</button></div></form>`,
     async v => {
-      if (v.new !== v.again) throw new Error('The new passwords do not match');
+      if (v.new !== v.again) throw new Error('The new passwords don\'t match');
       await api('/me/password', { method: 'POST', body: { current: v.current, new: v.new } });
       toast('Password changed');
     });
 }
 
-const VIEWS = { dashboard: viewDashboard, stock: viewStock, products: viewProducts, movements: viewMovements, locations: viewLocations, users: viewUsers };
+const VIEWS = { dashboard: viewDashboard, stock: viewStock, insights: viewInsights, products: viewProducts, movements: viewMovements, locations: viewLocations, users: viewUsers };
+$('#brand').innerHTML = BRAND; $('#brand-m').innerHTML = BRAND;
 (async function start() {
   try { state.user = await api('/me'); }
   catch (e) { if ($('#login').hidden) $('#view').innerHTML = `<div class="err">${esc(e.message)}</div>`; return; }

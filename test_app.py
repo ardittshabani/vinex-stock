@@ -310,3 +310,87 @@ class MigrationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class InsightsTests(unittest.TestCase):
+    """Analytics on a ledger with known demand."""
+
+    def setUp(self):
+        from datetime import date, timedelta
+        import insights
+        self.insights, self.today = insights, date.today()
+        db = stock.connect()
+        for t in ("movements", "products", "locations"):
+            db.execute(f"DELETE FROM {t}")
+        db.execute("INSERT INTO locations(name) VALUES ('Main')")
+        loc = db.execute("SELECT id FROM locations").fetchone()[0]
+        rows = [("STEADY", 1000, 1.0), ("SLOW", 0, 2.0), ("SPIKY", 0, 0.5)]
+        self.ids = {}
+        for sku, mn, cost in rows:
+            self.ids[sku] = db.execute("INSERT INTO products(sku,name,min_stock,unit_cost) VALUES (?,?,?,?)", (sku, sku, mn, cost)).lastrowid
+        start = self.today - timedelta(days=89)
+
+        def mv(sku, kind, qty, d):
+            db.execute("INSERT INTO movements(product_id,location_id,kind,qty,created_at,operator) VALUES (?,?,?,?,?,?)",
+                       (self.ids[sku], loc, kind, qty, f"{d} 10:00:00", "t"))
+        mv("STEADY", "IN", 20000, start)
+        mv("SLOW", "IN", 500, start)
+        mv("SPIKY", "IN", 10000, start)
+        for i in range(90):                      # 100 a day, every day
+            mv("STEADY", "OUT", -100, start + timedelta(days=i))
+        for i in range(0, 90, 3):                # 10 every third day, one huge issue
+            mv("SPIKY", "OUT", -(500 if i == 45 else 10), start + timedelta(days=i))
+        db.commit()
+        db.close()
+        self.c = client_as("admin", ADMIN_PW)
+
+    def item(self, data, sku):
+        return next(i for i in data["items"] if i["sku"] == sku)
+
+    def test_steady_demand_numbers(self):
+        d = self.c.get("/api/insights?lead_days=10&window=90").get_json()
+        s = self.item(d, "STEADY")
+        self.assertEqual(s["on_hand"], 11000)
+        self.assertEqual(s["avg_daily"], 100)
+        self.assertEqual(s["cover_days"], 110)
+        self.assertEqual(s["safety_stock"], 0)          # no variation -> no safety stock
+        self.assertEqual(s["reorder_point"], 1000)      # 100/day * 10 days
+        self.assertEqual(s["status"], "ok")
+        self.assertEqual(s["xyz"], "X")
+        self.assertEqual(s["abc"], "A")
+        self.assertEqual(s["forecast_30d"], 3000)
+        self.assertEqual(len(s["spark"]), 30)
+
+    def test_order_now_and_quantity(self):
+        d = self.c.get("/api/insights?lead_days=120&window=90").get_json()
+        s = self.item(d, "STEADY")
+        self.assertEqual(s["status"], "order_now")      # 11,000 on hand < 12,000 needed over the lead time
+        self.assertEqual(s["order_qty"], 4000)          # up to 12,000 + 30 days (3,000), rounded up
+
+    def test_slow_stock_and_no_demand(self):
+        d = self.c.get("/api/insights").get_json()
+        self.assertEqual([r["sku"] for r in d["slow"]], ["SLOW"])
+        self.assertEqual(d["slow"][0]["value_on_hand"], 1000)
+        self.assertEqual(self.item(d, "SLOW")["status"], "no_demand")
+
+    def test_unusual_issue_is_flagged(self):
+        d = self.c.get("/api/insights").get_json()
+        flagged = [a for a in d["anomalies"] if a["sku"] == "SPIKY"]
+        self.assertEqual(len(flagged), 1)
+        self.assertEqual(flagged[0]["qty"], 500)
+
+    def test_reversed_issue_is_not_demand(self):
+        mid = stock.connect().execute("SELECT MAX(id) FROM movements WHERE kind='OUT' AND product_id=?", (self.ids["STEADY"],)).fetchone()[0]
+        self.assertEqual(self.c.post(f"/api/movements/{mid}/reverse", json={}).status_code, 201)
+        s = self.item(self.c.get("/api/insights?window=90").get_json(), "STEADY")
+        self.assertLess(s["avg_daily"], 100)
+
+    def test_bad_params_and_csv(self):
+        self.assertEqual(self.c.get("/api/insights?lead_days=0").status_code, 400)
+        r = self.c.get("/api/export/insights.csv")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Suggested order", r.get_data(as_text=True))
+
+    def test_round_up(self):
+        r = self.insights.round_up
+        self.assertEqual([r(0), r(7.2), r(141), r(1201), r(12001)], [0, 8, 150, 1300, 13000])

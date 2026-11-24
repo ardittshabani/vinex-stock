@@ -13,6 +13,7 @@ from datetime import date, timedelta
 from flask import Flask, Response, g, jsonify, request, send_from_directory
 
 import auth
+import insights
 import prodata
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -546,6 +547,38 @@ def export_movements():
     rows = [[r["created_at"], r["kind"], r["sku"], r["product"], r["location"], r["qty"], r["unit"], r["lot"], r["reference"], r["note"], r["operator"]]
             for r in query_movements(get_db(), 100000)]
     return csv_response("movements.csv", ["Date", "Type", "SKU", "Product", "Location", "Qty", "Unit", "Lot", "Reference", "Note", "Operator"], rows)
+
+
+def insights_params():
+    lead = request.args.get("lead_days", 14, type=int)
+    window = request.args.get("window", 90, type=int)
+    if lead is None or not 1 <= lead <= 365:
+        raise ApiError("Lead time must be between 1 and 365 days")
+    if window is None or not 14 <= window <= 730:
+        raise ApiError("History window must be between 14 and 730 days")
+    return lead, window
+
+
+@app.get("/api/insights")
+def get_insights():
+    db = get_db()
+    lead, window = insights_params()
+    return jsonify(insights.compute(db, stock_summary(db), lead_days=lead, window=window))
+
+
+@app.get("/api/export/insights.csv")
+def export_insights():
+    db = get_db()
+    lead, window = insights_params()
+    data = insights.compute(db, stock_summary(db), lead_days=lead, window=window)
+    label = {"order_now": "Order now", "watch": "Watch", "ok": "OK", "no_demand": "No demand"}
+    rows = [[i["sku"], i["name"], i["unit"], label[i["status"]], i["on_hand"], i["avg_daily"], i["cover_days"],
+             i["stockout_date"], i["reorder_point"], i["safety_stock"], i["order_qty"], i["forecast_30d"],
+             i["trend_pct"], (i["abc"] or "") + (i["xyz"] or ""), i["history_days"]] for i in data["items"]]
+    return csv_response("insights.csv", ["SKU", "Name", "Unit", "Status", "On hand", "Avg issued per day", "Days of stock left",
+                                         "Expected stock-out", "Reorder point", "Safety stock", "Suggested order",
+                                         "Forecast next 30 days", "Trend % (last 4 weeks)", "Class (ABC/XYZ)",
+                                         "Days of history"], rows)
 
 
 @app.get("/api/export/reorder.csv")

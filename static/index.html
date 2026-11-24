@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vinex Fasteners - Stock</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg:#f4f5f7; --card:#fff; --ink:#1b2430; --muted:#6b7686; --line:#e1e5ea;
+    --accent:#0f4c81; --accent-ink:#fff; --ok:#1f8a4c; --low:#b26a00; --out:#b3261e;
+    --ok-bg:#e5f4ec; --low-bg:#fdf1dc; --out-bg:#fbe6e4;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:var(--accent); color:#fff; display:flex; align-items:center; gap:24px; padding:0 24px; height:52px; }
+  header h1 { font-size:16px; margin:0; font-weight:600; letter-spacing:.2px; white-space:nowrap; }
+  nav { display:flex; gap:2px; flex:1; }
+  nav button { background:none; border:0; color:#cfe0f1; padding:0 16px; height:52px; font:inherit; cursor:pointer; border-bottom:3px solid transparent; }
+  nav button:hover { color:#fff; }
+  nav button.active { color:#fff; border-bottom-color:#fff; font-weight:600; }
+  .operator { display:flex; align-items:center; gap:8px; font-size:13px; color:#cfe0f1; }
+  .operator input { background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.3); color:#fff; border-radius:6px; padding:5px 8px; width:140px; }
+  .operator input::placeholder { color:#b6cde4; }
+  main { max-width:1280px; margin:0 auto; padding:24px; }
+  .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  .toolbar .spacer { flex:1; }
+  h2 { font-size:18px; margin:0 0 14px; }
+  h3 { font-size:14px; margin:0 0 10px; }
+  .cards { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .stat .v { font-size:26px; font-weight:650; }
+  .stat .l { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.5px; }
+  .stat.warn .v { color:var(--low); } .stat.bad .v { color:var(--out); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  table { width:100%; border-collapse:collapse; background:var(--card); }
+  .tablewrap { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:auto; }
+  th,td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:12px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); background:#fafbfc; position:sticky; top:0; white-space:nowrap; }
+  tr:last-child td { border-bottom:0; }
+  tbody tr:hover { background:#f8fafc; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .muted { color:var(--muted); } .small { font-size:12px; }
+  .badge { display:inline-block; padding:2px 9px; border-radius:99px; font-size:12px; font-weight:600; }
+  .badge.ok { background:var(--ok-bg); color:var(--ok); } .badge.low { background:var(--low-bg); color:var(--low); }
+  .badge.out { background:var(--out-bg); color:var(--out); } .badge.off { background:#eceff3; color:var(--muted); }
+  .in { color:var(--ok); font-weight:600; } .outq { color:var(--out); font-weight:600; } .adj { color:var(--low); font-weight:600; }
+  button.btn, a.btn { font:inherit; border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:7px; padding:7px 13px; cursor:pointer; text-decoration:none; display:inline-block; }
+  button.btn:hover, a.btn:hover { background:#f1f4f8; }
+  button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  button.primary:hover { background:#0c3d69; }
+  button.link { background:none; border:0; color:var(--accent); cursor:pointer; padding:0; font:inherit; }
+  button.link:hover { text-decoration:underline; }
+  input, select, textarea { font:inherit; padding:7px 9px; border:1px solid #c9d0d9; border-radius:7px; background:#fff; color:var(--ink); }
+  input:focus, select:focus, textarea:focus { outline:2px solid #9cc3e6; border-color:var(--accent); }
+  input[type=search] { width:260px; }
+  dialog { border:0; border-radius:12px; padding:0; width:520px; max-width:94vw; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+  dialog::backdrop { background:rgba(20,30,45,.45); }
+  dialog form { padding:22px; }
+  dialog h2 { margin-bottom:16px; }
+  .field { margin-bottom:12px; display:flex; flex-direction:column; gap:4px; }
+  .field label { font-size:12px; color:var(--muted); font-weight:600; }
+  .field.row { flex-direction:row; align-items:center; gap:8px; } .field.row label { color:var(--ink); font-weight:400; font-size:14px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .hint { font-size:12px; color:var(--muted); min-height:16px; margin-top:-6px; margin-bottom:10px; }
+  .hint b { color:var(--ink); }
+  .actions { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+  .err { background:var(--out-bg); color:var(--out); border-radius:7px; padding:8px 10px; margin-bottom:12px; font-size:13px; }
+  #toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:#1b2430; color:#fff; padding:10px 18px; border-radius:8px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:99; }
+  #toast.show { opacity:1; }
+  .empty { padding:40px; text-align:center; color:var(--muted); }
+  .locs span { display:inline-block; margin-right:12px; white-space:nowrap; }
+  code { background:#eef1f5; padding:1px 5px; border-radius:4px; font-size:12px; }
+  @media (max-width:1000px) { .cards { grid-template-columns:repeat(2,1fr);} .grid2 { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>VINEX Fasteners &middot; Stock</h1>
+  <nav id="nav"></nav>
+  <div class="operator"><label for="operator">Operator</label><input id="operator" placeholder="Your name" autocomplete="off"></div>
+</header>
+<main id="view"></main>
+<dialog id="dlg"></dialog>
+<div id="toast"></div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => (n == null ? '' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 3 }));
+const money = n => '€' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+async function api(path, opts = {}) {
+  const res = await fetch('/api' + path, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600); }
+
+const state = { tab: 'dashboard', products: [], locations: [], stock: [], stockFilter: '', lowOnly: false, movQ: '', movKind: '' };
+const TABS = [['dashboard','Dashboard'],['stock','Stock'],['products','Products'],['movements','Movements'],['locations','Locations']];
+const KIND_LABEL = { IN:'Received', OUT:'Issued', ADJUST:'Stocktake adj.', TRANSFER_IN:'Transfer in', TRANSFER_OUT:'Transfer out' };
+
+const operatorInput = $('#operator');
+operatorInput.value = localStorage.getItem('operator') || '';
+operatorInput.addEventListener('input', () => localStorage.setItem('operator', operatorInput.value));
+
+function renderNav() {
+  $('#nav').innerHTML = TABS.map(([k, l]) => `<button data-tab="${k}" class="${state.tab === k ? 'active' : ''}">${l}</button>`).join('');
+  $('#nav').querySelectorAll('button').forEach(b => b.onclick = () => { state.tab = b.dataset.tab; show(); });
+}
+
+async function loadBase() {
+  [state.products, state.locations, state.stock] = await Promise.all([api('/products?all=1'), api('/locations'), api('/stock')]);
+}
+async function show() {
+  renderNav();
+  try { await loadBase(); await VIEWS[state.tab](); } catch (e) { $('#view').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+
+/* ---------- shared ---------- */
+const statusBadge = s => s === 'out' ? '<span class="badge out">Out of stock</span>' : s === 'low' ? '<span class="badge low">Low</span>' : '<span class="badge ok">OK</span>';
+const kindCell = r => { const cls = r.qty > 0 ? (r.kind === 'ADJUST' ? 'adj' : 'in') : (r.kind === 'ADJUST' ? 'adj' : 'outq'); return `<span class="${cls}">${KIND_LABEL[r.kind] || r.kind}</span>`; };
+const movRows = list => list.map(r => `<tr>
+  <td class="muted small" style="white-space:nowrap">${esc(r.created_at)}</td><td>${kindCell(r)}</td>
+  <td><b>${esc(r.sku)}</b><div class="muted small">${esc(r.product)}</div></td><td>${esc(r.location)}</td>
+  <td class="num ${r.qty > 0 ? 'in' : 'outq'}">${r.qty > 0 ? '+' : ''}${fmt(r.qty)} <span class="muted small">${esc(r.unit)}</span></td>
+  <td>${esc(r.lot)}</td><td>${esc(r.reference)}</td><td class="small muted">${esc(r.note)}</td><td class="small">${esc(r.operator)}</td></tr>`).join('');
+const movHead = '<tr><th>Date</th><th>Type</th><th>Product</th><th>Location</th><th class="num">Qty</th><th>Lot</th><th>Reference</th><th>Note</th><th>By</th></tr>';
+
+function openDialog(html, onSubmit) {
+  const dlg = $('#dlg');
+  dlg.innerHTML = html;
+  const form = $('form', dlg);
+  const err = document.createElement('div'); err.className = 'err'; err.hidden = true; form.prepend(err);
+  $('[data-cancel]', dlg)?.addEventListener('click', () => dlg.close());
+  form.onsubmit = async e => {
+    e.preventDefault();
+    err.hidden = true;
+    try { await onSubmit(Object.fromEntries(new FormData(form).entries()), form); dlg.close(); await show(); }
+    catch (ex) { err.textContent = ex.message; err.hidden = false; }
+  };
+  dlg.showModal();
+  return { dlg, form };
+}
+
+/* ---------- dashboard ---------- */
+async function viewDashboard() {
+  const d = await api('/dashboard');
+  $('#view').innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">Dashboard</h2><span class="spacer"></span>
+      <button class="btn primary" onclick="movementDialog('IN')">+ Receive stock</button>
+      <button class="btn" onclick="movementDialog('OUT')">Issue stock</button></div>
+    <div class="cards">
+      <div class="card stat"><div class="v">${d.products}</div><div class="l">Active products</div></div>
+      <div class="card stat ${d.low_count ? 'warn' : ''}"><div class="v">${d.low_count}</div><div class="l">Low stock</div></div>
+      <div class="card stat ${d.out_count ? 'bad' : ''}"><div class="v">${d.out_count}</div><div class="l">Out of stock</div></div>
+      <div class="card stat"><div class="v">${money(d.stock_value)}</div><div class="l">Stock value (items with cost)</div></div>
+      <div class="card stat"><div class="v">${d.movements_today}</div><div class="l">Movements today</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h3>Needs reordering</h3>${d.low.length ? `<table><thead><tr><th>Product</th><th class="num">On hand</th><th class="num">Minimum</th><th></th></tr></thead><tbody>${d.low.map(s => `
+        <tr><td><b>${esc(s.sku)}</b><div class="muted small">${esc(s.name)}</div></td><td class="num">${fmt(s.total)} ${esc(s.unit)}</td><td class="num">${fmt(s.min_stock)}</td><td>${statusBadge(s.status)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Nothing below minimum.</div>'}</div>
+      <div class="card"><h3>Recent movements</h3>${d.recent.length ? `<table><thead><tr><th>When</th><th>Product</th><th class="num">Qty</th></tr></thead><tbody>${d.recent.map(r => `
+        <tr><td class="muted small">${esc(r.created_at)}</td><td>${kindCell(r)} <b>${esc(r.sku)}</b></td><td class="num ${r.qty > 0 ? 'in' : 'outq'}">${r.qty > 0 ? '+' : ''}${fmt(r.qty)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No movements yet.</div>'}</div>
+    </div>`;
+}
+
+/* ---------- stock ---------- */
+function stockTable() {
+  const q = state.stockFilter.toLowerCase();
+  const rows = state.stock.filter(s => (!state.lowOnly || s.status !== 'ok') &&
+    (!q || [s.sku, s.name, s.category, s.spec].join(' ').toLowerCase().includes(q)));
+  if (!rows.length) return '<div class="empty">No products match.</div>';
+  return `<table><thead><tr><th>SKU</th><th>Product</th><th>Category</th><th class="num">On hand</th><th class="num">Min</th><th>Status</th><th>Locations</th><th></th></tr></thead><tbody>${rows.map(s => `
+    <tr><td><b>${esc(s.sku)}</b></td><td>${esc(s.name)}<div class="muted small">${esc(s.spec)}</div></td><td>${esc(s.category)}</td>
+    <td class="num"><b>${fmt(s.total)}</b> <span class="muted small">${esc(s.unit)}</span></td><td class="num muted">${s.min_stock ? fmt(s.min_stock) : ''}</td>
+    <td>${statusBadge(s.status)}</td>
+    <td class="locs small">${s.locations.map(l => `<span>${esc(l.location)}: <b>${fmt(l.qty)}</b></span>`).join('') || '<span class="muted">-</span>'}</td>
+    <td style="white-space:nowrap"><button class="link" onclick="lotsDialog(${s.id})">Lots</button> &middot; <button class="link" onclick="movementDialog('IN',${s.id})">Receive</button> &middot; <button class="link" onclick="movementDialog('OUT',${s.id})">Issue</button></td></tr>`).join('')}</tbody></table>`;
+}
+async function viewStock() {
+  $('#view').innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">Stock on hand</h2><span class="spacer"></span>
+      <input type="search" id="sf" placeholder="Search SKU, name, spec…" value="${esc(state.stockFilter)}">
+      <label><input type="checkbox" id="lowonly" ${state.lowOnly ? 'checked' : ''}> Low / out only</label>
+      <button class="btn primary" onclick="movementDialog('IN')">Receive</button>
+      <button class="btn" onclick="movementDialog('OUT')">Issue</button>
+      <button class="btn" onclick="movementDialog('TRANSFER')">Transfer</button>
+      <button class="btn" onclick="movementDialog('ADJUST')">Stocktake</button>
+      <a class="btn" href="/api/export/stock.csv">Export CSV</a></div>
+    <div class="tablewrap" id="stocktable">${stockTable()}</div>`;
+  $('#sf').oninput = e => { state.stockFilter = e.target.value; $('#stocktable').innerHTML = stockTable(); };
+  $('#lowonly').onchange = e => { state.lowOnly = e.target.checked; $('#stocktable').innerHTML = stockTable(); };
+}
+async function lotsDialog(pid) {
+  const p = state.products.find(x => x.id === pid);
+  const rows = await api('/stock/detail?product_id=' + pid);
+  const dlg = $('#dlg');
+  dlg.innerHTML = `<form method="dialog"><h2>${esc(p.sku)} <span class="muted" style="font-weight:400">by location &amp; lot</span></h2>
+    ${rows.length ? `<table><thead><tr><th>Location</th><th>Lot / heat no.</th><th class="num">Qty</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.location)}</td><td>${esc(r.lot) || '<span class="muted">(no lot)</span>'}</td><td class="num">${fmt(r.qty)} ${esc(p.unit)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No stock.</div>'}
+    <div class="actions"><button class="btn primary">Close</button></div></form>`;
+  dlg.showModal();
+}
+
+/* ---------- movement dialog ---------- */
+const MOVE_TITLE = { IN:'Receive stock', OUT:'Issue stock', TRANSFER:'Transfer between locations', ADJUST:'Stocktake (set counted quantity)' };
+const productLabel = p => `${p.sku} — ${p.name}`;
+function movementDialog(kind, presetPid) {
+  const active = state.products.filter(p => p.active);
+  const locOpts = (sel) => state.locations.filter(l => l.active).map(l => `<option value="${l.id}" ${l.id === sel ? 'selected' : ''}>${esc(l.name)}</option>`).join('');
+  const preset = active.find(p => p.id === presetPid);
+  const { form } = openDialog(`<form>
+    <h2>${MOVE_TITLE[kind]}</h2>
+    <div class="field"><label>Product</label><input name="product" list="plist" required autocomplete="off" placeholder="Type SKU or name…" value="${preset ? esc(productLabel(preset)) : ''}">
+      <datalist id="plist">${active.map(p => `<option value="${esc(productLabel(p))}">`).join('')}</datalist></div>
+    <div class="two">
+      <div class="field"><label>${kind === 'TRANSFER' ? 'From location' : 'Location'}</label><select name="location_id">${locOpts()}</select></div>
+      ${kind === 'TRANSFER' ? `<div class="field"><label>To location</label><select name="to_location_id">${locOpts(state.locations.filter(l => l.active)[1]?.id)}</select></div>` : '<div></div>'}
+    </div>
+    <div class="two">
+      <div class="field"><label>${kind === 'ADJUST' ? 'Counted quantity' : 'Quantity'}</label><input name="${kind === 'ADJUST' ? 'counted' : 'qty'}" type="number" step="any" min="0" required></div>
+      <div class="field"><label>Lot / heat number${kind === 'IN' ? '' : ' (optional)'}</label><input name="lot" list="lots" autocomplete="off"><datalist id="lots"></datalist></div>
+    </div>
+    <div class="hint" id="avail"></div>
+    <div class="two">
+      <div class="field"><label>Reference (order, WO, delivery note)</label><input name="reference"></div>
+      <div class="field"><label>Note</label><input name="note"></div>
+    </div>
+    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save</button></div>
+  </form>`, async (v, f) => {
+    const p = findProduct(v.product);
+    if (!p) throw new Error('Pick a product from the list');
+    const body = { kind, product_id: p.id, location_id: +v.location_id, lot: v.lot, reference: v.reference, note: v.note, operator: operatorInput.value };
+    if (kind === 'ADJUST') body.counted = v.counted; else body.qty = v.qty;
+    if (kind === 'TRANSFER') body.to_location_id = +v.to_location_id;
+    const r = await api('/movements', { method: 'POST', body });
+    toast(r.message || 'Saved');
+  });
+  const hint = async () => {
+    const p = findProduct(form.product.value);
+    if (!p) { $('#avail').textContent = ''; return; }
+    const r = await api(`/availability?product_id=${p.id}&location_id=${form.location_id.value}&lot=${encodeURIComponent(form.lot.value)}`);
+    $('#avail').innerHTML = `Currently in this location${form.lot.value ? ' / lot' : ''}: <b>${fmt(r.qty)} ${esc(p.unit)}</b>`;
+  };
+  const fillLots = async () => {
+    const p = findProduct(form.product.value);
+    $('#lots').innerHTML = p ? (await api('/stock/detail?product_id=' + p.id)).filter(r => r.lot).map(r => `<option value="${esc(r.lot)}">${esc(r.location)}: ${fmt(r.qty)}</option>`).join('') : '';
+  };
+  ['input', 'change'].forEach(ev => form.addEventListener(ev, e => { if (e.target.name === 'product') fillLots(); hint(); }));
+  fillLots(); hint();
+}
+function findProduct(val) {
+  const v = (val || '').trim().toLowerCase();
+  return state.products.find(p => p.active && (productLabel(p).toLowerCase() === v || p.sku.toLowerCase() === v));
+}
+
+/* ---------- products ---------- */
+async function viewProducts() {
+  $('#view').innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">Products</h2><span class="spacer"></span>
+      <button class="btn" onclick="importDialog('products')">Import products (CSV)</button>
+      <button class="btn" onclick="importDialog('opening-stock')">Import opening stock (CSV)</button>
+      <button class="btn primary" onclick="productDialog()">+ New product</button></div>
+    <div class="tablewrap">${state.products.length ? `<table><thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Spec</th><th>Unit</th><th class="num">Min stock</th><th class="num">Unit cost</th><th>Prodata code</th><th></th></tr></thead><tbody>${state.products.map(p => `
+      <tr><td><b>${esc(p.sku)}</b> ${p.active ? '' : '<span class="badge off">inactive</span>'}</td><td>${esc(p.name)}</td><td>${esc(p.category)}</td><td class="small">${esc(p.spec)}</td><td>${esc(p.unit)}</td>
+      <td class="num">${fmt(p.min_stock)}</td><td class="num">${p.unit_cost != null ? fmt(p.unit_cost) : ''}</td><td>${esc(p.prodata_code)}</td>
+      <td><button class="link" onclick="productDialog(${p.id})">Edit</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">No products yet. Add one or import a CSV.</div>'}</div>`;
+}
+function productDialog(id) {
+  const p = state.products.find(x => x.id === id) || { unit: 'pcs', min_stock: 0, active: 1 };
+  openDialog(`<form><h2>${id ? 'Edit product' : 'New product'}</h2>
+    <div class="two"><div class="field"><label>SKU</label><input name="sku" required value="${esc(p.sku)}"></div>
+      <div class="field"><label>Unit</label><input name="unit" list="units" value="${esc(p.unit)}"><datalist id="units"><option>pcs</option><option>kg</option><option>box</option><option>m</option><option>set</option></datalist></div></div>
+    <div class="field"><label>Name</label><input name="name" required value="${esc(p.name)}"></div>
+    <div class="two"><div class="field"><label>Category</label><input name="category" list="cats" value="${esc(p.category)}"><datalist id="cats">${[...new Set(state.products.map(x => x.category).filter(Boolean))].map(c => `<option>${esc(c)}</option>`).join('')}</datalist></div>
+      <div class="field"><label>Spec (standard, class, finish)</label><input name="spec" value="${esc(p.spec)}"></div></div>
+    <div class="two"><div class="field"><label>Minimum stock (alert level)</label><input name="min_stock" type="number" step="any" min="0" value="${p.min_stock ?? 0}"></div>
+      <div class="field"><label>Unit cost (optional)</label><input name="unit_cost" type="number" step="any" min="0" value="${p.unit_cost ?? ''}"></div></div>
+    <div class="field"><label>Prodata item code (optional, for future sync)</label><input name="prodata_code" value="${esc(p.prodata_code)}"></div>
+    ${id ? `<div class="field row"><input type="checkbox" name="active" id="act" ${p.active ? 'checked' : ''}><label for="act">Active</label></div>` : ''}
+    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save</button></div></form>`,
+    async (v, f) => {
+      const body = { ...v }; if (id) body.active = f.active.checked;
+      await api(id ? '/products/' + id : '/products', { method: id ? 'PUT' : 'POST', body });
+      toast('Product saved');
+    });
+}
+function importDialog(kind) {
+  const isProducts = kind === 'products';
+  openDialog(`<form><h2>${isProducts ? 'Import products' : 'Import opening stock'}</h2>
+    <p class="muted">${isProducts
+      ? 'CSV with a header row. Columns: <code>sku</code>, <code>name</code> (required); <code>category</code>, <code>spec</code>, <code>unit</code>, <code>min_stock</code>, <code>unit_cost</code>, <code>prodata_code</code>. Existing SKUs are updated.'
+      : 'CSV with a header row. Columns: <code>sku</code>, <code>location</code>, <code>qty</code>; <code>lot</code> optional. Unknown locations are created. Run this once when going live.'}</p>
+    <div class="field"><label>CSV file</label><input type="file" name="file" accept=".csv,text/csv" required></div>
+    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Import</button></div></form>`,
+    async (v, f) => {
+      const csv = await f.file.files[0].text();
+      const r = await api('/import/' + kind, { method: 'POST', body: { csv, operator: operatorInput.value } });
+      toast(isProducts ? `Imported: ${r.created} new, ${r.updated} updated` : `Imported ${r.imported} rows`);
+    });
+}
+
+/* ---------- movements ---------- */
+async function viewMovements() {
+  $('#view').innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">Movements</h2><span class="spacer"></span>
+      <input type="search" id="mq" placeholder="Search SKU, lot, reference, location…" value="${esc(state.movQ)}">
+      <select id="mk"><option value="">All types</option>${Object.entries(KIND_LABEL).map(([k, l]) => `<option value="${k}" ${state.movKind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <a class="btn" id="mexp" href="#">Export CSV</a></div>
+    <div class="tablewrap" id="movtable"></div>`;
+  const load = async () => {
+    const qs = new URLSearchParams({ q: state.movQ, kind: state.movKind });
+    $('#mexp').href = '/api/export/movements.csv?' + qs;
+    const rows = await api('/movements?limit=500&' + qs);
+    $('#movtable').innerHTML = rows.length ? `<table><thead>${movHead}</thead><tbody>${movRows(rows)}</tbody></table>` : '<div class="empty">No movements found.</div>';
+  };
+  let timer; $('#mq').oninput = e => { state.movQ = e.target.value; clearTimeout(timer); timer = setTimeout(load, 250); };
+  $('#mk').onchange = e => { state.movKind = e.target.value; load(); };
+  await load();
+}
+
+/* ---------- locations ---------- */
+async function viewLocations() {
+  $('#view').innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">Locations</h2><span class="spacer"></span><button class="btn primary" onclick="locationDialog()">+ New location</button></div>
+    <div class="tablewrap"><table><thead><tr><th>Name</th><th>Status</th><th></th></tr></thead><tbody>${state.locations.map(l => `
+      <tr><td><b>${esc(l.name)}</b></td><td>${l.active ? '<span class="badge ok">Active</span>' : '<span class="badge off">Inactive</span>'}</td><td><button class="link" onclick="locationDialog(${l.id})">Edit</button></td></tr>`).join('')}</tbody></table></div>
+    <p class="muted small">Examples: warehouse zones, raw-material store, packing area, a rack or bin code. Stock can be moved between locations with Transfer.</p>`;
+}
+function locationDialog(id) {
+  const l = state.locations.find(x => x.id === id) || { active: 1 };
+  openDialog(`<form><h2>${id ? 'Edit location' : 'New location'}</h2>
+    <div class="field"><label>Name</label><input name="name" required value="${esc(l.name)}"></div>
+    ${id ? `<div class="field row"><input type="checkbox" name="active" id="lact" ${l.active ? 'checked' : ''}><label for="lact">Active</label></div>` : ''}
+    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save</button></div></form>`,
+    async (v, f) => {
+      const body = { name: v.name }; if (id) body.active = f.active.checked;
+      await api(id ? '/locations/' + id : '/locations', { method: id ? 'PUT' : 'POST', body });
+      toast('Location saved');
+    });
+}
+
+const VIEWS = { dashboard: viewDashboard, stock: viewStock, products: viewProducts, movements: viewMovements, locations: viewLocations };
+show();
+</script>
+</body>
+</html>

@@ -26,7 +26,7 @@
   .toolbar .spacer { flex:1; }
   h2 { font-size:18px; margin:0 0 14px; }
   h3 { font-size:14px; margin:0 0 10px; }
-  .cards { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:20px; }
+  div.cards { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:20px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
   .stat .v { font-size:26px; font-weight:650; }
   .stat .l { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.5px; }
@@ -44,8 +44,8 @@
   .badge.ok { background:var(--ok-bg); color:var(--ok); } .badge.low { background:var(--low-bg); color:var(--low); }
   .badge.out { background:var(--out-bg); color:var(--out); } .badge.off { background:#eceff3; color:var(--muted); }
   .in { color:var(--ok); font-weight:600; } .outq { color:var(--out); font-weight:600; } .adj { color:var(--low); font-weight:600; }
-  button.btn, a.btn { font:inherit; border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:7px; padding:7px 13px; cursor:pointer; text-decoration:none; display:inline-block; }
-  button.btn:hover, a.btn:hover { background:#f1f4f8; }
+  button.btn, a.btn, summary.btn { font:inherit; border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:7px; padding:7px 13px; cursor:pointer; text-decoration:none; display:inline-block; }
+  button.btn:hover, a.btn:hover, summary.btn:hover { background:#f1f4f8; }
   button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
   button.primary:hover { background:#0c3d69; }
   button.link { background:none; border:0; color:var(--accent); cursor:pointer; padding:0; font:inherit; }
@@ -79,7 +79,7 @@
   .logincard { background:#fff; border:1px solid var(--line); border-radius:14px; padding:28px; width:360px; max-width:100%; box-shadow:0 10px 40px rgba(20,30,45,.12); }
   .logincard h1 { margin:0 0 2px; font-size:20px; color:var(--accent); }
   .logincard p { margin:0 0 18px; }
-  @media (max-width:1000px) { .cards { grid-template-columns:repeat(2,1fr);} .grid2 { grid-template-columns:1fr; } }
+  @media (max-width:1000px) { div.cards { grid-template-columns:repeat(2,1fr);} .grid2 { grid-template-columns:1fr; } }
   @media (max-width:700px) {
     header { height:auto; flex-wrap:wrap; padding:8px 12px; gap:6px 12px; }
     header h1 { font-size:15px; }
@@ -87,11 +87,11 @@
     nav button { height:40px; padding:0 12px; white-space:nowrap; }
     .operator { margin-left:auto; font-size:12px; }
     main { padding:12px; }
-    .cards { gap:10px; } .stat .v { font-size:20px; }
+    div.cards { gap:10px; } .stat .v { font-size:20px; }
     .toolbar { gap:8px; } .toolbar .spacer { display:none; } .toolbar h2 { width:100%; }
     input[type=search], .toolbar select { width:100%; }
     input, select, textarea { font-size:16px; } /* stops iPhones zooming into fields */
-    button.btn, a.btn { padding:10px 14px; }
+    button.btn, a.btn, summary.btn { padding:10px 14px; }
     dialog { width:100vw; max-width:100vw; margin:auto 0 0 0; border-radius:14px 14px 0 0; max-height:92vh; }
     .two { grid-template-columns:1fr; }
     th, td { padding:8px; }
@@ -122,6 +122,46 @@
   .badge.rev { background:#eceff3; color:var(--muted); font-weight:500; }
   tr.dim td { opacity:.6; }
   .card h3 .dl { float:right; font-weight:500; font-size:12px; color:var(--accent); text-decoration:none; }
+  /* dropdown menus (user menu, "More") built on <details>, no script needed to open */
+  details.dd { position:relative; }
+  details.dd > summary { list-style:none; cursor:pointer; user-select:none; }
+  details.dd > summary::-webkit-details-marker { display:none; }
+  details.dd .menu { position:absolute; right:0; top:calc(100% + 6px); min-width:200px; background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 30px rgba(20,30,45,.18); padding:6px; z-index:30; display:flex; flex-direction:column; }
+  details.dd .menu > * { background:none; border:0; text-align:left; padding:9px 12px; border-radius:7px; font:inherit; color:inherit; cursor:pointer; text-decoration:none; display:block; width:100%; }
+  details.dd .menu > *:hover { background:#f1f4f8; }
+  details.dd .menu .who { color:var(--muted); font-size:12px; cursor:default; } details.dd .menu .who:hover { background:none; }
+  .usermenu > summary { color:#fff; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.3); border-radius:99px; padding:5px 12px; font-size:13px; white-space:nowrap; }
+  .usermenu > summary:hover { background:rgba(255,255,255,.26); }
+  .acts { display:flex; gap:8px; align-items:center; }
+  .stock .c-qty b { font-size:16px; } .stock .c-qty, .stock .c-sku { white-space:nowrap; }
+  @media (max-width:1000px) { div.cards .stat:last-child { grid-column:1 / -1; } }
+  @media (max-width:700px) {
+    /* header: title + user menu on one slim row; tabs become a bottom bar */
+    header { height:48px; flex-wrap:nowrap; padding:0 12px; gap:8px; }
+    header h1 { font-size:15px; flex:1; overflow:hidden; text-overflow:ellipsis; }
+    nav { position:fixed; left:0; right:0; bottom:0; width:auto; order:0; z-index:20; background:#fff; border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom); overflow:visible; gap:0; }
+    nav button { flex:1; height:54px; padding:0 2px; font-size:11px; color:var(--muted); border-bottom:0; border-top:3px solid transparent; white-space:nowrap; }
+    nav button:hover { color:var(--ink); }
+    nav button.active { color:var(--accent); border-top-color:var(--accent); }
+    body { padding-bottom:calc(64px + env(safe-area-inset-bottom)); }
+    #toast { bottom:84px; }
+    .toolbar .acts { width:100%; } .toolbar .acts > .btn, .toolbar .acts > details { flex:1; } .toolbar .acts > details > summary { text-align:center; }
+    .toolbar .searchrow { width:100%; }
+    /* stock: compact 4-line cards instead of a label/value list */
+    table.cards.stock tr { display:grid; grid-template-columns:1fr auto; gap:2px 12px; align-items:baseline; }
+    table.cards.stock td { display:block; padding:0; text-align:left; }
+    table.cards.stock td::before { content:none; }
+    table.cards.stock .c-sku { font-size:15px; } table.cards.stock .c-name { color:var(--muted); font-size:13px; }
+    table.cards.stock .c-qty { text-align:right; font-size:15px; }
+    table.cards.stock .c-status { text-align:right; }
+    table.cards.stock .c-loc { grid-column:1 / -1; } table.cards.stock .c-act { grid-column:1 / -1; padding-top:6px; }
+    table.cards.stock .hm { display:none; }
+    table.cards.stock .c-sku { grid-area:1 / 1; } table.cards.stock .c-qty { grid-area:1 / 2; }
+    table.cards.stock .c-name { grid-area:2 / 1; } table.cards.stock .c-status { grid-area:2 / 2; }
+    table.cards.stock .c-loc { grid-area:3 / 1 / 4 / 3; } table.cards.stock .c-act { grid-area:4 / 1 / 5 / 3; }
+    .stock .c-act button.link { padding:6px 12px 6px 0; }
+    details.dd .menu { min-width:180px; }
+  }
 </style>
 </head>
 <body>
@@ -158,6 +198,11 @@ async function api(path, opts = {}) {
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
 }
+/* close any open dropdown when clicking elsewhere or choosing an item */
+document.addEventListener('click', e => {
+  document.querySelectorAll('details.dd[open]').forEach(d => { if (!d.contains(e.target) || e.target.closest('.menu > *')) d.open = false; });
+});
+function moreMenu(items) { return `<details class="dd"><summary class="btn">More ▾</summary><div class="menu">${items}</div></details>`; }
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600); }
 
 const state = { tab: 'dashboard', user: null, users: [], products: [], locations: [], stock: [], stockFilter: '', lowOnly: false, stockSort: { key: 'sku', dir: 1 }, movQ: '', movKind: '', movProduct: null };
@@ -168,7 +213,8 @@ const KIND_LABEL = { IN:'Received', OUT:'Issued', ADJUST:'Stocktake adj.', TRANS
 
 function renderWho() {
   const u = state.user;
-  $('#whoami').innerHTML = u ? `<span>${esc(u.username)} <span class="rolechip">${esc(u.role)}</span></span><button class="hbtn" id="chpw">Password</button><button class="hbtn" id="logout">Sign out</button>` : '';
+  $('#whoami').innerHTML = u ? `<details class="dd usermenu"><summary>${esc(u.username)} <span class="rolechip">${esc(u.role)}</span> ▾</summary>
+    <div class="menu"><div class="who">Signed in as ${esc(u.username)}</div><button id="chpw">Change password</button><button id="logout">Sign out</button></div></details>` : '';
   if (!u) return;
   $('#chpw').onclick = passwordDialog;
   $('#logout').onclick = async () => { try { await api('/logout', { method: 'POST', body: {} }); } catch {} showLogin(); };
@@ -239,8 +285,8 @@ async function viewDashboard() {
   const d = await api('/dashboard');
   $('#view').innerHTML = `
     <div class="toolbar"><h2 style="margin:0">Dashboard</h2><span class="spacer"></span>
-      ${canMove() ? `<button class="btn primary" onclick="movementDialog('IN')">+ Receive stock</button>
-      <button class="btn" onclick="movementDialog('OUT')">Issue stock</button>` : ''}</div>
+      ${canMove() ? `<div class="acts"><button class="btn primary" onclick="movementDialog('IN')">+ Receive stock</button>
+      <button class="btn" onclick="movementDialog('OUT')">Issue stock</button></div>` : ''}</div>
     <div class="cards">
       <div class="card stat"><div class="v">${d.products}</div><div class="l">Active products</div></div>
       <div class="card stat ${d.low_count ? 'warn' : ''}"><div class="v">${d.low_count}</div><div class="l">Low stock</div></div>
@@ -248,11 +294,13 @@ async function viewDashboard() {
       <div class="card stat"><div class="v">${money(d.stock_value)}</div><div class="l">Stock value (items with cost)</div></div>
       <div class="card stat"><div class="v">${d.movements_today}</div><div class="l">Movements today</div></div>
     </div>
-    <div class="card" style="margin-bottom:14px"><h3>Activity &ndash; last 14 days</h3>${activityChart(d.activity)}</div>
-    <div class="grid2">
+    <div class="grid2" style="margin-bottom:14px">
+      <div class="card"><h3>Activity &ndash; last 14 days</h3>${activityChart(d.activity)}</div>
       <div class="card"><h3>Needs reordering${d.low.length ? ' <a class="dl" href="/api/export/reorder.csv">Download list (CSV)</a>' : ''}</h3>${d.low.length ? `<table><thead><tr><th>Product</th><th class="num">On hand</th><th class="num">Minimum</th><th></th></tr></thead><tbody>${d.low.map(s => `
         <tr><td><b>${esc(s.sku)}</b><div class="muted small">${esc(s.name)}</div></td><td class="num">${fmt(s.total)} ${esc(s.unit)}</td><td class="num">${fmt(s.min_stock)}</td><td>${statusBadge(s.status)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Nothing below minimum.</div>'}</div>
-      <div class="card"><h3>Recent movements</h3>${d.recent.length ? `<table><thead><tr><th>When</th><th>Product</th><th class="num">Qty</th></tr></thead><tbody>${d.recent.map(r => `
+    </div>
+    <div class="grid2" style="grid-template-columns:1fr">
+      <div class="card"><h3>Recent movements</h3>${d.recent.length ? `<table><thead><tr><th>When</th><th>Product</th><th class="num">Qty</th></tr></thead><tbody>${d.recent.slice(0, 8).map(r => `
         <tr><td class="muted small">${esc(r.created_at)}</td><td>${kindCell(r)} <b>${esc(r.sku)}</b></td><td class="num ${r.qty > 0 ? 'in' : 'outq'}">${r.qty > 0 ? '+' : ''}${fmt(r.qty)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No movements yet.</div>'}</div>
     </div>`;
 }
@@ -265,12 +313,12 @@ function stockTable() {
   if (!rows.length) return '<div class="empty">No products match.</div>';
   const { key, dir } = state.stockSort, by = SORTERS[key];
   rows.sort((a, b) => { const x = by(a), y = by(b); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
-  return `<table class="cards"><thead><tr>${sortHead('SKU', 'sku')}${sortHead('Product', 'name')}${sortHead('Category', 'category')}${sortHead('On hand', 'total', 'num')}<th class="num">Min</th>${sortHead('Status', 'status')}<th>Locations</th><th></th></tr></thead><tbody>${rows.map(s => `
-    <tr><td data-label="SKU"><b>${esc(s.sku)}</b></td><td data-label="Product">${esc(s.name)}<div class="muted small">${esc(s.spec)}</div></td><td data-label="Category">${esc(s.category)}</td>
-    <td data-label="On hand" class="num"><b>${fmt(s.total)}</b> <span class="muted small">${esc(s.unit)}</span></td><td data-label="Min" class="num muted">${s.min_stock ? fmt(s.min_stock) : ''}</td>
-    <td data-label="Status">${statusBadge(s.status)}</td>
-    <td data-label="Locations" class="locs small">${s.locations.map(l => `<span>${esc(l.location)}: <b>${fmt(l.qty)}</b></span>`).join('') || '<span class="muted">-</span>'}</td>
-    <td style="white-space:nowrap"><button class="link" onclick="lotsDialog(${s.id})">Lots</button> &middot; <button class="link" onclick="showHistory(${s.id})">History</button>${canMove() ? ` &middot; <button class="link" onclick="movementDialog('IN',${s.id})">Receive</button> &middot; <button class="link" onclick="movementDialog('OUT',${s.id})">Issue</button>` : ''}</td></tr>`).join('')}</tbody></table>`;
+  return `<table class="cards stock"><thead><tr>${sortHead('SKU', 'sku')}${sortHead('Product', 'name')}${sortHead('Category', 'category')}${sortHead('On hand', 'total', 'num')}<th class="num">Min</th>${sortHead('Status', 'status')}<th>Locations</th><th></th></tr></thead><tbody>${rows.map(s => `
+    <tr><td class="c-sku"><b>${esc(s.sku)}</b></td><td class="c-name">${esc(s.name)}<div class="muted small">${esc(s.spec)}</div></td><td class="hm">${esc(s.category)}</td>
+    <td class="num c-qty"><b>${fmt(s.total)}</b> <span class="muted small">${esc(s.unit)}</span></td><td class="num muted hm">${s.min_stock ? fmt(s.min_stock) : ''}</td>
+    <td class="c-status">${statusBadge(s.status)}</td>
+    <td class="locs small c-loc">${s.locations.map(l => `<span>${esc(l.location)}: <b>${fmt(l.qty)}</b></span>`).join('') || '<span class="muted">-</span>'}</td>
+    <td class="c-act" style="white-space:nowrap"><button class="link" onclick="lotsDialog(${s.id})">Lots</button> &middot; <button class="link" onclick="showHistory(${s.id})">History</button>${canMove() ? ` &middot; <button class="link" onclick="movementDialog('IN',${s.id})">Receive</button> &middot; <button class="link" onclick="movementDialog('OUT',${s.id})">Issue</button>` : ''}</td></tr>`).join('')}</tbody></table>`;
 }
 const SORTERS = {
   sku: s => s.sku.toLowerCase(), name: s => s.name.toLowerCase(), category: s => (s.category || '').toLowerCase(),
@@ -287,14 +335,11 @@ function showHistory(pid) {
 async function viewStock() {
   $('#view').innerHTML = `
     <div class="toolbar"><h2 style="margin:0">Stock on hand</h2><span class="spacer"></span>
-      <input type="search" id="sf" placeholder="Search SKU, name, spec…" value="${esc(state.stockFilter)}">
+      <div class="inputrow searchrow"><input type="search" id="sf" placeholder="Search SKU, name, spec…" value="${esc(state.stockFilter)}"><button class="btn" onclick="scanToSearch()">Scan</button></div>
       <label><input type="checkbox" id="lowonly" ${state.lowOnly ? 'checked' : ''}> Low / out only</label>
-      ${canMove() ? `<button class="btn primary" onclick="movementDialog('IN')">Receive</button>
-      <button class="btn" onclick="movementDialog('OUT')">Issue</button>
-      <button class="btn" onclick="movementDialog('TRANSFER')">Transfer</button>
-      <button class="btn" onclick="movementDialog('ADJUST')">Stocktake</button>` : ''}
-      <button class="btn" onclick="scanToSearch()">Scan</button>
-      <a class="btn" href="/api/export/stock.csv">Export CSV</a></div>
+      <div class="acts">${canMove() ? `<button class="btn primary" onclick="movementDialog('IN')">Receive</button>
+      <button class="btn" onclick="movementDialog('OUT')">Issue</button>` : ''}
+      ${moreMenu((canMove() ? `<button onclick="movementDialog('TRANSFER')">Transfer</button><button onclick="movementDialog('ADJUST')">Stocktake</button>` : '') + `<a href="/api/export/stock.csv">Export CSV</a>`)}</div></div>
     <div class="tablewrap" id="stocktable">${stockTable()}</div>`;
   $('#stocktable').onclick = e => {
     const th = e.target.closest('th[data-sort]'); if (!th) return;
@@ -372,9 +417,8 @@ function findProduct(val) {
 async function viewProducts() {
   $('#view').innerHTML = `
     <div class="toolbar"><h2 style="margin:0">Products</h2><span class="spacer"></span>
-      ${isAdmin() ? `<button class="btn" onclick="importDialog('products')">Import products (CSV)</button>
-      <button class="btn" onclick="importDialog('opening-stock')">Import opening stock (CSV)</button>
-      <button class="btn primary" onclick="productDialog()">+ New product</button>` : ''}</div>
+      ${isAdmin() ? `<div class="acts"><button class="btn primary" onclick="productDialog()">+ New product</button>
+      ${moreMenu(`<button onclick="importDialog('products')">Import products (CSV)</button><button onclick="importDialog('opening-stock')">Import opening stock (CSV)</button>`)}</div>` : ''}</div>
     <div class="tablewrap">${state.products.length ? `<table class="cards"><thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Spec</th><th>Unit</th><th class="num">Min stock</th><th class="num">Unit cost</th><th>Barcode</th><th>Prodata code</th><th></th></tr></thead><tbody>${state.products.map(p => `
       <tr><td data-label="SKU"><b>${esc(p.sku)}</b> ${p.active ? '' : '<span class="badge off">inactive</span>'}</td><td data-label="Name">${esc(p.name)}</td><td data-label="Category">${esc(p.category)}</td><td data-label="Spec" class="small">${esc(p.spec)}</td><td data-label="Unit">${esc(p.unit)}</td>
       <td data-label="Min stock" class="num">${fmt(p.min_stock)}</td><td data-label="Unit cost" class="num">${p.unit_cost != null ? fmt(p.unit_cost) : ''}</td><td data-label="Barcode" class="small">${esc(p.barcode)}</td><td data-label="Prodata code">${esc(p.prodata_code)}</td>
@@ -470,7 +514,7 @@ function reverseDialog(id) {
 function activityChart(a) {
   if (!a || a.every(x => !x.in && !x.out)) return '<div class="empty">No receipts or issues in the last 14 days.</div>';
   const max = Math.max(1, ...a.flatMap(x => [x.in, x.out]));
-  const W = 700, H = 170, pad = 22, bw = (W - 2 * pad) / a.length, plot = H - 42;
+  const vw = window.innerWidth, W = Math.round(vw <= 1000 ? vw - 70 : (Math.min(vw, 1280) - 62) / 2 - 34), H = 150, pad = 22, bw = (W - 2 * pad) / a.length, plot = H - 42;
   const bars = a.map((x, i) => {
     const x0 = pad + i * bw, hi = (x.in / max) * plot, ho = (x.out / max) * plot;
     return `<g><title>${esc(x.date)}: ${x.in} received, ${x.out} issued</title>

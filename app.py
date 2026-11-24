@@ -8,6 +8,7 @@ import io
 import os
 import sqlite3
 import uuid
+from datetime import date, timedelta
 
 from flask import Flask, Response, g, jsonify, request, send_from_directory
 
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS products(
     min_stock REAL NOT NULL DEFAULT 0,
     unit_cost REAL,
     prodata_code TEXT,
+    barcode TEXT,
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -47,6 +49,7 @@ CREATE TABLE IF NOT EXISTS movements(
     note TEXT NOT NULL DEFAULT '',
     operator TEXT NOT NULL DEFAULT '',
     transfer_id TEXT,
+    reversal_of INTEGER,
     prodata_synced INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
@@ -95,6 +98,12 @@ def init_db():
     db = connect()
     db.execute("PRAGMA journal_mode=WAL")
     db.executescript(SCHEMA)
+    # upgrade databases created by an earlier version
+    for table, column, ddl in (("products", "barcode", "ALTER TABLE products ADD COLUMN barcode TEXT"),
+                               ("movements", "reversal_of", "ALTER TABLE movements ADD COLUMN reversal_of INTEGER")):
+        if column not in {r["name"] for r in db.execute(f"PRAGMA table_info({table})")}:
+            db.execute(ddl)
+    db.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_products_barcode ON products(barcode) WHERE barcode IS NOT NULL")
     if db.execute("SELECT COUNT(*) FROM locations").fetchone()[0] == 0:
         db.execute("INSERT INTO locations(name) VALUES ('Main warehouse')")
     db.close()
@@ -191,6 +200,22 @@ def stock_summary(db):
     return out
 
 
+def activity_series(db, days=14):
+    """Received / issued movement counts per day, for the dashboard chart."""
+    start = date.today() - timedelta(days=days - 1)
+    rows = db.execute(
+        """SELECT date(created_at) AS d, kind, COUNT(*) AS n FROM movements
+           WHERE kind IN ('IN','OUT') AND date(created_at) >= ? GROUP BY d, kind""",
+        (start.isoformat(),),
+    ).fetchall()
+    counts = {(r["d"], r["kind"]): r["n"] for r in rows}
+    series = []
+    for i in range(days):
+        d = (start + timedelta(days=i)).isoformat()
+        series.append({"date": d, "in": counts.get((d, "IN"), 0), "out": counts.get((d, "OUT"), 0)})
+    return series
+
+
 # ---------------------------------------------------------------- pages
 @app.get("/")
 def index():
@@ -216,7 +241,12 @@ def product_fields(payload):
         "min_stock": num(payload.get("min_stock", 0) or 0, "min_stock", 0),
         "unit_cost": num(payload.get("unit_cost"), "unit_cost", 0, required=False),
         "prodata_code": text(payload, "prodata_code") or None,
+        "barcode": text(payload, "barcode") or None,
     }
+
+
+def duplicate_message(e, f):
+    return f"Barcode '{f['barcode']}' is already used by another product" if "barcode" in str(e).lower() else f"SKU '{f['sku']}' already exists"
 
 
 @app.post("/api/products")
@@ -225,12 +255,12 @@ def create_product():
     f = product_fields(request.get_json(force=True) or {})
     try:
         cur = db.execute(
-            """INSERT INTO products(sku,name,category,spec,unit,min_stock,unit_cost,prodata_code)
-               VALUES (:sku,:name,:category,:spec,:unit,:min_stock,:unit_cost,:prodata_code)""",
+            """INSERT INTO products(sku,name,category,spec,unit,min_stock,unit_cost,prodata_code,barcode)
+               VALUES (:sku,:name,:category,:spec,:unit,:min_stock,:unit_cost,:prodata_code,:barcode)""",
             f,
         )
-    except sqlite3.IntegrityError:
-        raise ApiError(f"SKU '{f['sku']}' already exists", 409)
+    except sqlite3.IntegrityError as e:
+        raise ApiError(duplicate_message(e, f), 409)
     return jsonify(id=cur.lastrowid), 201
 
 
@@ -244,15 +274,32 @@ def update_product(pid):
     try:
         cur = db.execute(
             """UPDATE products SET sku=:sku,name=:name,category=:category,spec=:spec,unit=:unit,
-               min_stock=:min_stock,unit_cost=:unit_cost,prodata_code=:prodata_code,active=:active
+               min_stock=:min_stock,unit_cost=:unit_cost,prodata_code=:prodata_code,barcode=:barcode,active=:active
                WHERE id=:id""",
             f,
         )
-    except sqlite3.IntegrityError:
-        raise ApiError(f"SKU '{f['sku']}' already exists", 409)
+    except sqlite3.IntegrityError as e:
+        raise ApiError(duplicate_message(e, f), 409)
     if cur.rowcount == 0:
         raise ApiError("Product not found", 404)
     return jsonify(ok=True)
+
+
+@app.get("/api/lookup")
+def lookup():
+    """Find a product from a scanned code: barcode first, then SKU, then Prodata code."""
+    code = request.args.get("code", "").strip()
+    if not code:
+        raise ApiError("code is required")
+    p = get_db().execute(
+        """SELECT id, sku, name, unit FROM products
+           WHERE active=1 AND (barcode=? OR lower(sku)=lower(?) OR lower(prodata_code)=lower(?))
+           ORDER BY (barcode=?) DESC LIMIT 1""",
+        (code, code, code, code),
+    ).fetchone()
+    if not p:
+        raise ApiError(f"No product matches '{code}'", 404)
+    return jsonify(dict(p))
 
 
 # ---------------------------------------------------------------- locations
@@ -340,12 +387,15 @@ def dashboard():
         movements_today=today,
         low=low[:10],
         recent=[dict(r) for r in recent],
+        activity=activity_series(db),
     )
 
 
 # ---------------------------------------------------------------- movements
 MOVEMENT_SELECT = """SELECT m.id, m.created_at, m.kind, m.qty, m.lot, m.reference, m.note, m.operator,
-       m.transfer_id, m.prodata_synced, p.sku, p.name AS product, p.unit, l.name AS location
+       m.transfer_id, m.prodata_synced, m.product_id, m.reversal_of,
+       EXISTS(SELECT 1 FROM movements r WHERE r.reversal_of = m.id) AS reversed,
+       p.sku, p.name AS product, p.unit, l.name AS location
        FROM movements m JOIN products p ON p.id=m.product_id JOIN locations l ON l.id=m.location_id"""
 
 
@@ -428,6 +478,47 @@ def post_movement():
     return jsonify(ok=True, changed=True), 201
 
 
+REVERSE_KIND = {"IN": "OUT", "OUT": "IN", "ADJUST": "ADJUST", "TRANSFER_IN": "TRANSFER_OUT", "TRANSFER_OUT": "TRANSFER_IN"}
+
+
+@app.post("/api/movements/<int:mid>/reverse")
+def reverse_movement(mid):
+    """Admin only (see auth.allowed). Books the opposite movement - both legs of a transfer - so a
+    mistake is undone without rewriting history."""
+    db = get_db()
+    reason = text(request.get_json(force=True) or {}, "note")
+    db.execute("BEGIN IMMEDIATE")
+    try:
+        m = db.execute("SELECT * FROM movements WHERE id=?", (mid,)).fetchone()
+        if not m:
+            raise ApiError("Movement not found", 404)
+        if m["reversal_of"] is not None:
+            raise ApiError("A reversal cannot be reversed - book a new movement instead")
+        legs = db.execute("SELECT * FROM movements WHERE transfer_id=?", (m["transfer_id"],)).fetchall() if m["transfer_id"] else [m]
+        marks = ",".join("?" * len(legs))
+        if db.execute(f"SELECT 1 FROM movements WHERE reversal_of IN ({marks}) LIMIT 1", [r["id"] for r in legs]).fetchone():
+            raise ApiError("This movement has already been reversed")
+        new_ids = []
+        for r in legs:
+            note = f"Reversal of #{r['id']}" + (f": {reason}" if reason else "")
+            cur = db.execute(
+                """INSERT INTO movements(product_id, location_id, kind, qty, lot, reference, note, operator, reversal_of)
+                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                (r["product_id"], r["location_id"], REVERSE_KIND[r["kind"]], -r["qty"], r["lot"], r["reference"], note,
+                 g.user["username"], r["id"]),
+            )
+            new_ids.append(cur.lastrowid)
+        for r in legs:  # taking stock back out must not push the location or the lot below zero
+            if -r["qty"] < 0 and (balance(db, r["product_id"], r["location_id"]) < -1e-9
+                                  or (r["lot"] and balance(db, r["product_id"], r["location_id"], r["lot"]) < -1e-9)):
+                raise ApiError("Cannot reverse: that stock has already been used or moved")
+        db.execute("COMMIT")
+    except Exception:
+        db.execute("ROLLBACK")
+        raise
+    return jsonify(ok=True, reversal_ids=new_ids), 201
+
+
 # ---------------------------------------------------------------- CSV import / export
 def csv_response(filename, header, rows):
     buf = io.StringIO()
@@ -457,6 +548,15 @@ def export_movements():
     return csv_response("movements.csv", ["Date", "Type", "SKU", "Product", "Location", "Qty", "Unit", "Lot", "Reference", "Note", "Operator"], rows)
 
 
+@app.get("/api/export/reorder.csv")
+def export_reorder():
+    """Everything at or below its minimum stock, with the shortfall - a shopping list for purchasing."""
+    rows = [[s["sku"], s["name"], s["unit"], s["total"], s["min_stock"], round(s["min_stock"] - s["total"], 3),
+             s["prodata_code"] or "", s["barcode"] or ""]
+            for s in stock_summary(get_db()) if s["min_stock"] > 0 and s["total"] <= s["min_stock"]]
+    return csv_response("reorder.csv", ["SKU", "Name", "Unit", "On hand", "Min stock", "Shortfall to minimum", "Prodata code", "Barcode"], rows)
+
+
 def read_csv(payload):
     raw = (payload or {}).get("csv", "")
     if not raw.strip():
@@ -483,14 +583,16 @@ def import_products():
                 exists = db.execute("SELECT id FROM products WHERE sku=?", (f["sku"],)).fetchone()
                 if exists:
                     db.execute("""UPDATE products SET name=:name,category=:category,spec=:spec,unit=:unit,min_stock=:min_stock,
-                                  unit_cost=:unit_cost,prodata_code=:prodata_code WHERE sku=:sku""", f)
+                                  unit_cost=:unit_cost,prodata_code=:prodata_code,barcode=:barcode WHERE sku=:sku""", f)
                     updated += 1
                 else:
-                    db.execute("""INSERT INTO products(sku,name,category,spec,unit,min_stock,unit_cost,prodata_code)
-                                  VALUES (:sku,:name,:category,:spec,:unit,:min_stock,:unit_cost,:prodata_code)""", f)
+                    db.execute("""INSERT INTO products(sku,name,category,spec,unit,min_stock,unit_cost,prodata_code,barcode)
+                                  VALUES (:sku,:name,:category,:spec,:unit,:min_stock,:unit_cost,:prodata_code,:barcode)""", f)
                     created += 1
             except ApiError as e:
                 errors.append(f"Row {i}: {e.message}")
+            except sqlite3.IntegrityError as e:
+                errors.append(f"Row {i}: {duplicate_message(e, f)}")
         db.execute("COMMIT" if not errors else "ROLLBACK")
     except Exception:
         db.execute("ROLLBACK")

@@ -121,6 +121,59 @@ class StockTests(unittest.TestCase):
         d = self.c.get("/api/dashboard").get_json()
         self.assertEqual((d["products"], d["low_count"], d["movements_today"]), (1, 1, 1))
 
+    def test_barcode_lookup_and_uniqueness(self):
+        self.c.put(f"/api/products/{self.pid}", json={"sku": "B1", "name": "Bolt", "min_stock": 100, "barcode": "5901234123457"})
+        self.assertEqual(self.c.get("/api/lookup?code=5901234123457").get_json()["sku"], "B1")
+        self.assertEqual(self.c.get("/api/lookup?code=b1").get_json()["id"], self.pid)  # SKU, case-insensitive
+        self.assertEqual(self.c.get("/api/lookup?code=nope").status_code, 404)
+        r = self.c.post("/api/products", json={"sku": "B2", "name": "Other", "barcode": "5901234123457"})
+        self.assertEqual(r.status_code, 409)
+        self.assertIn("Barcode", r.get_json()["error"])
+        self.assertEqual(self.c.post("/api/products", json={"sku": "B3", "name": "x"}).status_code, 201)  # empty barcodes don't clash
+        self.assertEqual(self.c.post("/api/products", json={"sku": "B4", "name": "y"}).status_code, 201)
+
+    def test_reverse_receipt(self):
+        self.move("IN", 100, lot="L1")
+        mid = self.c.get("/api/movements").get_json()[0]["id"]
+        self.assertEqual(self.c.post(f"/api/movements/{mid}/reverse", json={"note": "typo"}).status_code, 201)
+        self.assertEqual(self.total(), 0)
+        self.assertEqual(self.c.post(f"/api/movements/{mid}/reverse", json={}).status_code, 400)  # already reversed
+        rows = self.c.get("/api/movements").get_json()
+        self.assertTrue(rows[1]["reversed"])
+        self.assertEqual(rows[0]["reversal_of"], mid)
+        self.assertIn("typo", rows[0]["note"])
+        self.assertEqual(self.c.post(f"/api/movements/{rows[0]['id']}/reverse", json={}).status_code, 400)  # a reversal can't be reversed
+
+    def test_cannot_reverse_receipt_that_was_already_used(self):
+        self.move("IN", 100)
+        mid = self.c.get("/api/movements").get_json()[0]["id"]
+        self.move("OUT", 80)
+        self.assertEqual(self.c.post(f"/api/movements/{mid}/reverse", json={}).status_code, 400)
+        self.assertEqual(self.total(), 20)
+
+    def test_reverse_transfer_restores_both_locations(self):
+        self.move("IN", 100)
+        self.move("TRANSFER", 40, to_location_id=self.pack)
+        leg = next(r for r in self.c.get("/api/movements").get_json() if r["kind"] == "TRANSFER_OUT")
+        self.assertEqual(self.c.post(f"/api/movements/{leg['id']}/reverse", json={}).status_code, 201)
+        locs = {l["location"]: l["qty"] for l in self.c.get("/api/stock").get_json()[0]["locations"]}
+        self.assertEqual(locs, {"Main": 100})
+
+    def test_reverse_lot_receipt_cannot_drive_location_negative(self):
+        self.move("IN", 100, lot="X")
+        mid = self.c.get("/api/movements").get_json()[0]["id"]
+        self.move("OUT", 100)  # no lot given: drains the location
+        self.assertEqual(self.c.post(f"/api/movements/{mid}/reverse", json={}).status_code, 400)
+
+    def test_reorder_list_and_dashboard_activity(self):
+        self.move("IN", 40)  # minimum is 100
+        csv_text = self.c.get("/api/export/reorder.csv").get_data(as_text=True)
+        self.assertIn("B1", csv_text)
+        self.assertIn(",60", csv_text)  # shortfall
+        act = self.c.get("/api/dashboard").get_json()["activity"]
+        self.assertEqual(len(act), 14)
+        self.assertEqual(act[-1]["in"], 1)
+
     def test_prodata_not_configured(self):
         self.assertEqual(self.c.post("/api/prodata/sync", json={}).status_code, 501)
         self.assertFalse(self.c.get("/api/prodata/status").get_json()["configured"])
@@ -161,6 +214,7 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(sam.post("/api/locations", json={"name": "X"}).status_code, 403)
         self.assertEqual(sam.post("/api/import/products", json={"csv": "sku,name\nX,X"}).status_code, 403)
         self.assertEqual(sam.get("/api/users").status_code, 403)
+        self.assertEqual(sam.post("/api/movements/1/reverse", json={}).status_code, 403)  # reversing is admin-only
         self.assertEqual(sam.post("/api/prodata/sync", json={}).status_code, 403)
 
     def test_operator_in_request_is_ignored(self):
@@ -221,6 +275,37 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(c.post("/api/login", json={"username": "vic", "password": "password-vic"}).status_code, 429)  # even the right one
         auth._fails.clear()
         self.assertEqual(c.post("/api/login", json={"username": "vic", "password": "password-vic"}).status_code, 200)
+
+
+class MigrationTests(unittest.TestCase):
+    def test_old_database_is_upgraded(self):
+        import sqlite3
+        path = tempfile.NamedTemporaryFile(suffix=".db", delete=False).name
+        old = sqlite3.connect(path)
+        old.executescript("""
+            CREATE TABLE products(id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT '', spec TEXT NOT NULL DEFAULT '', unit TEXT NOT NULL DEFAULT 'pcs',
+                min_stock REAL NOT NULL DEFAULT 0, unit_cost REAL, prodata_code TEXT, active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')));
+            CREATE TABLE movements(id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER NOT NULL, location_id INTEGER NOT NULL,
+                kind TEXT NOT NULL, qty REAL NOT NULL, lot TEXT NOT NULL DEFAULT '', reference TEXT NOT NULL DEFAULT '',
+                note TEXT NOT NULL DEFAULT '', operator TEXT NOT NULL DEFAULT '', transfer_id TEXT,
+                prodata_synced INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
+            INSERT INTO products(sku, name) VALUES ('OLD1', 'Old product');""")
+        old.commit()
+        old.close()
+        original = stock.DB_PATH
+        stock.DB_PATH = path
+        try:
+            stock.init_db()
+            stock.init_db()  # must be safe to repeat
+            db = stock.connect()
+            self.assertIn("barcode", {r["name"] for r in db.execute("PRAGMA table_info(products)")})
+            self.assertIn("reversal_of", {r["name"] for r in db.execute("PRAGMA table_info(movements)")})
+            self.assertEqual(db.execute("SELECT sku FROM products").fetchone()["sku"], "OLD1")
+            db.close()
+        finally:
+            stock.DB_PATH = original
 
 
 if __name__ == "__main__":

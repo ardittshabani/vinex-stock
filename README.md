@@ -44,12 +44,14 @@ Every movement records the signed-in user. Passwords are hashed; 5 wrong attempt
 
 ## What it does
 
-- **Products** – SKU, name, category, spec, unit, minimum stock, unit cost, optional Prodata code.
+- **Products** – SKU, name, category, spec, unit, minimum stock, unit cost, optional barcode / QR value, optional Prodata code.
 - **Locations** – warehouse zones, raw-material store, packing area, racks/bins.
 - **Movements** – Receive, Issue, Transfer, Stocktake (enter the counted quantity; the app books the difference), with lot / heat number and reference.
 - **Safety checks** – cannot issue more than is on hand (per location and per lot); transfers are all-or-nothing; two people saving at once can't both take the last box.
-- **Dashboard** – low / out of stock, stock value, recent movements. **Stock** view with per-location and per-lot detail.
-- **CSV** – import products, import opening stock (go-live), export stock and movements.
+- **Barcode / QR scanning** – scan with the phone camera (needs an https address) to fill a product in a movement, or to find it on the Stock page. Matches barcode first, then SKU, then Prodata code.
+- **Reverse a movement** (admin) – books an opposite entry instead of deleting; both legs of a transfer are reversed, and it is refused if it would make stock negative.
+- **Dashboard** – low / out of stock, stock value, 14-day activity chart, recent movements, reorder list (CSV download). **Stock** view with sortable columns, per-location and per-lot detail, per-product history. Tables become cards on phones.
+- **CSV** – import products (columns include `barcode`), import opening stock (go-live), export stock, movements and the reorder list.
 
 Quantities are never edited directly: each is the sum of an append-only movement ledger, so every number traces back to who did what and when.
 
@@ -64,6 +66,7 @@ Quantities are never edited directly: each is the sum of an append-only movement
 | `seed_demo.py` | Demo data |
 | `test_app.py` | `python -m unittest test_app -v` |
 | `Procfile` | Start command for Railway |
+| `static/vendor/` | html5-qrcode (Apache-2.0) for scanning, loaded only when you tap Scan |
 
 ## Prodata
 

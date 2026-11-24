@@ -95,7 +95,33 @@
     dialog { width:100vw; max-width:100vw; margin:auto 0 0 0; border-radius:14px 14px 0 0; max-height:92vh; }
     .two { grid-template-columns:1fr; }
     th, td { padding:8px; }
+    /* tables marked class="cards" become one card per row on a phone */
+    table.cards thead { display:none; }
+    table.cards, table.cards tbody { display:block; }
+    table.cards tr { display:block; padding:10px 12px; border-bottom:1px solid var(--line); }
+    table.cards td { display:flex; justify-content:space-between; gap:14px; border:0; padding:3px 0; text-align:right; }
+    table.cards td::before { content:attr(data-label); color:var(--muted); font-size:12px; text-align:left; flex:none; }
+    table.cards td:not([data-label])::before { content:none; }
+    table.cards td:empty { display:none; }
+    table.cards td:first-child { font-size:15px; }
+    table.cards .locs span { display:block; margin:0; }
   }
+  .sortable { cursor:pointer; user-select:none; }
+  .sortable:hover { color:var(--ink); }
+  .sortable .arr { font-size:10px; margin-left:4px; }
+  .chip { display:inline-flex; align-items:center; background:#e8f0f8; color:var(--accent); border-radius:99px; padding:3px 4px 3px 12px; font-size:13px; font-weight:600; }
+  .chip button { background:none; border:0; cursor:pointer; color:inherit; font-size:16px; line-height:1; padding:0 8px; }
+  .inputrow { display:flex; gap:8px; }
+  .inputrow input { flex:1; min-width:0; }
+  .chart { width:100%; height:auto; display:block; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12px; color:var(--muted); margin-top:6px; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
+  #scan { width:480px; }
+  #scan > div { padding:20px; }
+  #reader { width:100%; min-height:240px; background:#111; border-radius:8px; overflow:hidden; }
+  .badge.rev { background:#eceff3; color:var(--muted); font-weight:500; }
+  tr.dim td { opacity:.6; }
+  .card h3 .dl { float:right; font-weight:500; font-size:12px; color:var(--accent); text-decoration:none; }
 </style>
 </head>
 <body>
@@ -106,6 +132,12 @@
 </header>
 <main id="view"></main>
 <dialog id="dlg"></dialog>
+<dialog id="scan"><div>
+  <h2 style="margin:0 0 12px;font-size:18px">Scan a barcode or QR code</h2>
+  <div id="reader"></div>
+  <div class="hint" id="scanmsg" style="margin-top:10px"></div>
+  <div class="actions"><button type="button" class="btn" id="scancancel">Cancel</button></div>
+</div></dialog>
 <div id="toast"></div>
 <div id="login" hidden></div>
 
@@ -128,7 +160,7 @@ async function api(path, opts = {}) {
 }
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600); }
 
-const state = { tab: 'dashboard', user: null, users: [], products: [], locations: [], stock: [], stockFilter: '', lowOnly: false, movQ: '', movKind: '' };
+const state = { tab: 'dashboard', user: null, users: [], products: [], locations: [], stock: [], stockFilter: '', lowOnly: false, stockSort: { key: 'sku', dir: 1 }, movQ: '', movKind: '', movProduct: null };
 const TABS = [['dashboard','Dashboard'],['stock','Stock'],['products','Products'],['movements','Movements'],['locations','Locations'],['users','Users']];
 const isAdmin = () => state.user?.role === 'admin';
 const canMove = () => ['admin', 'staff'].includes(state.user?.role);
@@ -177,12 +209,14 @@ async function show() {
 /* ---------- shared ---------- */
 const statusBadge = s => s === 'out' ? '<span class="badge out">Out of stock</span>' : s === 'low' ? '<span class="badge low">Low</span>' : '<span class="badge ok">OK</span>';
 const kindCell = r => { const cls = r.qty > 0 ? (r.kind === 'ADJUST' ? 'adj' : 'in') : (r.kind === 'ADJUST' ? 'adj' : 'outq'); return `<span class="${cls}">${KIND_LABEL[r.kind] || r.kind}</span>`; };
-const movRows = list => list.map(r => `<tr>
-  <td class="muted small" style="white-space:nowrap">${esc(r.created_at)}</td><td>${kindCell(r)}</td>
-  <td><b>${esc(r.sku)}</b><div class="muted small">${esc(r.product)}</div></td><td>${esc(r.location)}</td>
-  <td class="num ${r.qty > 0 ? 'in' : 'outq'}">${r.qty > 0 ? '+' : ''}${fmt(r.qty)} <span class="muted small">${esc(r.unit)}</span></td>
-  <td>${esc(r.lot)}</td><td>${esc(r.reference)}</td><td class="small muted">${esc(r.note)}</td><td class="small">${esc(r.operator)}</td></tr>`).join('');
-const movHead = '<tr><th>Date</th><th>Type</th><th>Product</th><th>Location</th><th class="num">Qty</th><th>Lot</th><th>Reference</th><th>Note</th><th>By</th></tr>';
+const movRows = list => list.map(r => `<tr class="${r.reversed || r.reversal_of ? 'dim' : ''}">
+  <td data-label="Date" class="muted small" style="white-space:nowrap">${esc(r.created_at)}</td>
+  <td data-label="Type">${kindCell(r)}${r.reversal_of ? ' <span class="badge rev">reversal</span>' : ''}${r.reversed ? ' <span class="badge rev">reversed</span>' : ''}</td>
+  <td data-label="Product"><b>${esc(r.sku)}</b><div class="muted small">${esc(r.product)}</div></td><td data-label="Location">${esc(r.location)}</td>
+  <td data-label="Qty" class="num ${r.qty > 0 ? 'in' : 'outq'}">${r.qty > 0 ? '+' : ''}${fmt(r.qty)} <span class="muted small">${esc(r.unit)}</span></td>
+  <td data-label="Lot">${esc(r.lot)}</td><td data-label="Reference">${esc(r.reference)}</td><td data-label="Note" class="small muted">${esc(r.note)}</td><td data-label="By" class="small">${esc(r.operator)}</td>
+  ${isAdmin() ? `<td>${!r.reversed && !r.reversal_of ? `<button class="link" onclick="reverseDialog(${r.id})">Reverse</button>` : ''}</td>` : ''}</tr>`).join('');
+const movHead = () => '<tr><th>Date</th><th>Type</th><th>Product</th><th>Location</th><th class="num">Qty</th><th>Lot</th><th>Reference</th><th>Note</th><th>By</th>' + (isAdmin() ? '<th></th>' : '') + '</tr>';
 
 function openDialog(html, onSubmit) {
   const dlg = $('#dlg');
@@ -214,8 +248,9 @@ async function viewDashboard() {
       <div class="card stat"><div class="v">${money(d.stock_value)}</div><div class="l">Stock value (items with cost)</div></div>
       <div class="card stat"><div class="v">${d.movements_today}</div><div class="l">Movements today</div></div>
     </div>
+    <div class="card" style="margin-bottom:14px"><h3>Activity &ndash; last 14 days</h3>${activityChart(d.activity)}</div>
     <div class="grid2">
-      <div class="card"><h3>Needs reordering</h3>${d.low.length ? `<table><thead><tr><th>Product</th><th class="num">On hand</th><th class="num">Minimum</th><th></th></tr></thead><tbody>${d.low.map(s => `
+      <div class="card"><h3>Needs reordering${d.low.length ? ' <a class="dl" href="/api/export/reorder.csv">Download list (CSV)</a>' : ''}</h3>${d.low.length ? `<table><thead><tr><th>Product</th><th class="num">On hand</th><th class="num">Minimum</th><th></th></tr></thead><tbody>${d.low.map(s => `
         <tr><td><b>${esc(s.sku)}</b><div class="muted small">${esc(s.name)}</div></td><td class="num">${fmt(s.total)} ${esc(s.unit)}</td><td class="num">${fmt(s.min_stock)}</td><td>${statusBadge(s.status)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Nothing below minimum.</div>'}</div>
       <div class="card"><h3>Recent movements</h3>${d.recent.length ? `<table><thead><tr><th>When</th><th>Product</th><th class="num">Qty</th></tr></thead><tbody>${d.recent.map(r => `
         <tr><td class="muted small">${esc(r.created_at)}</td><td>${kindCell(r)} <b>${esc(r.sku)}</b></td><td class="num ${r.qty > 0 ? 'in' : 'outq'}">${r.qty > 0 ? '+' : ''}${fmt(r.qty)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No movements yet.</div>'}</div>
@@ -228,12 +263,26 @@ function stockTable() {
   const rows = state.stock.filter(s => (!state.lowOnly || s.status !== 'ok') &&
     (!q || [s.sku, s.name, s.category, s.spec].join(' ').toLowerCase().includes(q)));
   if (!rows.length) return '<div class="empty">No products match.</div>';
-  return `<table><thead><tr><th>SKU</th><th>Product</th><th>Category</th><th class="num">On hand</th><th class="num">Min</th><th>Status</th><th>Locations</th><th></th></tr></thead><tbody>${rows.map(s => `
-    <tr><td><b>${esc(s.sku)}</b></td><td>${esc(s.name)}<div class="muted small">${esc(s.spec)}</div></td><td>${esc(s.category)}</td>
-    <td class="num"><b>${fmt(s.total)}</b> <span class="muted small">${esc(s.unit)}</span></td><td class="num muted">${s.min_stock ? fmt(s.min_stock) : ''}</td>
-    <td>${statusBadge(s.status)}</td>
-    <td class="locs small">${s.locations.map(l => `<span>${esc(l.location)}: <b>${fmt(l.qty)}</b></span>`).join('') || '<span class="muted">-</span>'}</td>
-    <td style="white-space:nowrap"><button class="link" onclick="lotsDialog(${s.id})">Lots</button>${canMove() ? ` &middot; <button class="link" onclick="movementDialog('IN',${s.id})">Receive</button> &middot; <button class="link" onclick="movementDialog('OUT',${s.id})">Issue</button>` : ''}</td></tr>`).join('')}</tbody></table>`;
+  const { key, dir } = state.stockSort, by = SORTERS[key];
+  rows.sort((a, b) => { const x = by(a), y = by(b); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
+  return `<table class="cards"><thead><tr>${sortHead('SKU', 'sku')}${sortHead('Product', 'name')}${sortHead('Category', 'category')}${sortHead('On hand', 'total', 'num')}<th class="num">Min</th>${sortHead('Status', 'status')}<th>Locations</th><th></th></tr></thead><tbody>${rows.map(s => `
+    <tr><td data-label="SKU"><b>${esc(s.sku)}</b></td><td data-label="Product">${esc(s.name)}<div class="muted small">${esc(s.spec)}</div></td><td data-label="Category">${esc(s.category)}</td>
+    <td data-label="On hand" class="num"><b>${fmt(s.total)}</b> <span class="muted small">${esc(s.unit)}</span></td><td data-label="Min" class="num muted">${s.min_stock ? fmt(s.min_stock) : ''}</td>
+    <td data-label="Status">${statusBadge(s.status)}</td>
+    <td data-label="Locations" class="locs small">${s.locations.map(l => `<span>${esc(l.location)}: <b>${fmt(l.qty)}</b></span>`).join('') || '<span class="muted">-</span>'}</td>
+    <td style="white-space:nowrap"><button class="link" onclick="lotsDialog(${s.id})">Lots</button> &middot; <button class="link" onclick="showHistory(${s.id})">History</button>${canMove() ? ` &middot; <button class="link" onclick="movementDialog('IN',${s.id})">Receive</button> &middot; <button class="link" onclick="movementDialog('OUT',${s.id})">Issue</button>` : ''}</td></tr>`).join('')}</tbody></table>`;
+}
+const SORTERS = {
+  sku: s => s.sku.toLowerCase(), name: s => s.name.toLowerCase(), category: s => (s.category || '').toLowerCase(),
+  total: s => s.total, status: s => ({ out: 0, low: 1, ok: 2 }[s.status]),
+};
+function sortHead(label, key, cls = '') {
+  const on = state.stockSort.key === key;
+  return `<th class="sortable ${cls}" data-sort="${key}" title="Sort by ${label}">${label}<span class="arr">${on ? (state.stockSort.dir > 0 ? '▲' : '▼') : ''}</span></th>`;
+}
+function showHistory(pid) {
+  state.movProduct = state.products.find(p => p.id === pid) || null;
+  state.movQ = ''; state.movKind = ''; state.tab = 'movements'; show();
 }
 async function viewStock() {
   $('#view').innerHTML = `
@@ -244,8 +293,15 @@ async function viewStock() {
       <button class="btn" onclick="movementDialog('OUT')">Issue</button>
       <button class="btn" onclick="movementDialog('TRANSFER')">Transfer</button>
       <button class="btn" onclick="movementDialog('ADJUST')">Stocktake</button>` : ''}
+      <button class="btn" onclick="scanToSearch()">Scan</button>
       <a class="btn" href="/api/export/stock.csv">Export CSV</a></div>
     <div class="tablewrap" id="stocktable">${stockTable()}</div>`;
+  $('#stocktable').onclick = e => {
+    const th = e.target.closest('th[data-sort]'); if (!th) return;
+    const k = th.dataset.sort;
+    state.stockSort = { key: k, dir: state.stockSort.key === k ? -state.stockSort.dir : 1 };
+    $('#stocktable').innerHTML = stockTable();
+  };
   $('#sf').oninput = e => { state.stockFilter = e.target.value; $('#stocktable').innerHTML = stockTable(); };
   $('#lowonly').onchange = e => { state.lowOnly = e.target.checked; $('#stocktable').innerHTML = stockTable(); };
 }
@@ -268,7 +324,7 @@ function movementDialog(kind, presetPid) {
   const preset = active.find(p => p.id === presetPid);
   const { form } = openDialog(`<form>
     <h2>${MOVE_TITLE[kind]}</h2>
-    <div class="field"><label>Product</label><input name="product" list="plist" required autocomplete="off" placeholder="Type SKU or name…" value="${preset ? esc(productLabel(preset)) : ''}">
+    <div class="field"><label>Product</label><div class="inputrow"><input name="product" list="plist" required autocomplete="off" placeholder="Type SKU or name…" value="${preset ? esc(productLabel(preset)) : ''}"><button type="button" class="btn" data-scan>Scan</button></div>
       <datalist id="plist">${active.map(p => `<option value="${esc(productLabel(p))}">`).join('')}</datalist></div>
     <div class="two">
       <div class="field"><label>${kind === 'TRANSFER' ? 'From location' : 'Location'}</label><select name="location_id">${locOpts()}</select></div>
@@ -305,6 +361,7 @@ function movementDialog(kind, presetPid) {
   };
   ['input', 'change'].forEach(ev => form.addEventListener(ev, e => { if (e.target.name === 'product') fillLots(); hint(); }));
   fillLots(); hint();
+  form.querySelector('[data-scan]').onclick = () => scanProduct(form);
 }
 function findProduct(val) {
   const v = (val || '').trim().toLowerCase();
@@ -318,14 +375,14 @@ async function viewProducts() {
       ${isAdmin() ? `<button class="btn" onclick="importDialog('products')">Import products (CSV)</button>
       <button class="btn" onclick="importDialog('opening-stock')">Import opening stock (CSV)</button>
       <button class="btn primary" onclick="productDialog()">+ New product</button>` : ''}</div>
-    <div class="tablewrap">${state.products.length ? `<table><thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Spec</th><th>Unit</th><th class="num">Min stock</th><th class="num">Unit cost</th><th>Prodata code</th><th></th></tr></thead><tbody>${state.products.map(p => `
-      <tr><td><b>${esc(p.sku)}</b> ${p.active ? '' : '<span class="badge off">inactive</span>'}</td><td>${esc(p.name)}</td><td>${esc(p.category)}</td><td class="small">${esc(p.spec)}</td><td>${esc(p.unit)}</td>
-      <td class="num">${fmt(p.min_stock)}</td><td class="num">${p.unit_cost != null ? fmt(p.unit_cost) : ''}</td><td>${esc(p.prodata_code)}</td>
+    <div class="tablewrap">${state.products.length ? `<table class="cards"><thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Spec</th><th>Unit</th><th class="num">Min stock</th><th class="num">Unit cost</th><th>Barcode</th><th>Prodata code</th><th></th></tr></thead><tbody>${state.products.map(p => `
+      <tr><td data-label="SKU"><b>${esc(p.sku)}</b> ${p.active ? '' : '<span class="badge off">inactive</span>'}</td><td data-label="Name">${esc(p.name)}</td><td data-label="Category">${esc(p.category)}</td><td data-label="Spec" class="small">${esc(p.spec)}</td><td data-label="Unit">${esc(p.unit)}</td>
+      <td data-label="Min stock" class="num">${fmt(p.min_stock)}</td><td data-label="Unit cost" class="num">${p.unit_cost != null ? fmt(p.unit_cost) : ''}</td><td data-label="Barcode" class="small">${esc(p.barcode)}</td><td data-label="Prodata code">${esc(p.prodata_code)}</td>
       <td>${isAdmin() ? `<button class="link" onclick="productDialog(${p.id})">Edit</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No products yet. Add one or import a CSV.</div>'}</div>`;
 }
 function productDialog(id) {
   const p = state.products.find(x => x.id === id) || { unit: 'pcs', min_stock: 0, active: 1 };
-  openDialog(`<form><h2>${id ? 'Edit product' : 'New product'}</h2>
+  const { form: pform } = openDialog(`<form><h2>${id ? 'Edit product' : 'New product'}</h2>
     <div class="two"><div class="field"><label>SKU</label><input name="sku" required value="${esc(p.sku)}"></div>
       <div class="field"><label>Unit</label><input name="unit" list="units" value="${esc(p.unit)}"><datalist id="units"><option>pcs</option><option>kg</option><option>box</option><option>m</option><option>set</option></datalist></div></div>
     <div class="field"><label>Name</label><input name="name" required value="${esc(p.name)}"></div>
@@ -333,6 +390,7 @@ function productDialog(id) {
       <div class="field"><label>Spec (standard, class, finish)</label><input name="spec" value="${esc(p.spec)}"></div></div>
     <div class="two"><div class="field"><label>Minimum stock (alert level)</label><input name="min_stock" type="number" step="any" min="0" value="${p.min_stock ?? 0}"></div>
       <div class="field"><label>Unit cost (optional)</label><input name="unit_cost" type="number" step="any" min="0" value="${p.unit_cost ?? ''}"></div></div>
+    <div class="field"><label>Barcode / QR value (optional) &ndash; what the scanner reads on the packaging</label><div class="inputrow"><input name="barcode" autocomplete="off" value="${esc(p.barcode)}"><button type="button" class="btn" data-scan>Scan</button></div></div>
     <div class="field"><label>Prodata item code (optional, for future sync)</label><input name="prodata_code" value="${esc(p.prodata_code)}"></div>
     ${id ? `<div class="field row"><input type="checkbox" name="active" id="act" ${p.active ? 'checked' : ''}><label for="act">Active</label></div>` : ''}
     <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save</button></div></form>`,
@@ -341,12 +399,13 @@ function productDialog(id) {
       await api(id ? '/products/' + id : '/products', { method: id ? 'PUT' : 'POST', body });
       toast('Product saved');
     });
+  pform.querySelector('[data-scan]').onclick = async () => { const c = await scanCode(); if (c) pform.barcode.value = c; };
 }
 function importDialog(kind) {
   const isProducts = kind === 'products';
   openDialog(`<form><h2>${isProducts ? 'Import products' : 'Import opening stock'}</h2>
     <p class="muted">${isProducts
-      ? 'CSV with a header row. Columns: <code>sku</code>, <code>name</code> (required); <code>category</code>, <code>spec</code>, <code>unit</code>, <code>min_stock</code>, <code>unit_cost</code>, <code>prodata_code</code>. Existing SKUs are updated.'
+      ? 'CSV with a header row. Columns: <code>sku</code>, <code>name</code> (required); <code>category</code>, <code>spec</code>, <code>unit</code>, <code>min_stock</code>, <code>unit_cost</code>, <code>barcode</code>, <code>prodata_code</code>. Existing SKUs are updated.'
       : 'CSV with a header row. Columns: <code>sku</code>, <code>location</code>, <code>qty</code>; <code>lot</code> optional. Unknown locations are created. Run this once when going live.'}</p>
     <div class="field"><label>CSV file</label><input type="file" name="file" accept=".csv,text/csv" required></div>
     <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Import</button></div></form>`,
@@ -360,17 +419,18 @@ function importDialog(kind) {
 /* ---------- movements ---------- */
 async function viewMovements() {
   $('#view').innerHTML = `
-    <div class="toolbar"><h2 style="margin:0">Movements</h2><span class="spacer"></span>
+    <div class="toolbar"><h2 style="margin:0">Movements</h2>${state.movProduct ? `<span class="chip">${esc(state.movProduct.sku)}<button type="button" id="clrprod" title="Show all products" aria-label="Show all products">&times;</button></span>` : ''}<span class="spacer"></span>
       <input type="search" id="mq" placeholder="Search SKU, lot, reference, location…" value="${esc(state.movQ)}">
       <select id="mk"><option value="">All types</option>${Object.entries(KIND_LABEL).map(([k, l]) => `<option value="${k}" ${state.movKind === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <a class="btn" id="mexp" href="#">Export CSV</a></div>
     <div class="tablewrap" id="movtable"></div>`;
   const load = async () => {
-    const qs = new URLSearchParams({ q: state.movQ, kind: state.movKind });
+    const qs = new URLSearchParams({ q: state.movQ, kind: state.movKind, ...(state.movProduct ? { product_id: state.movProduct.id } : {}) });
     $('#mexp').href = '/api/export/movements.csv?' + qs;
     const rows = await api('/movements?limit=500&' + qs);
-    $('#movtable').innerHTML = rows.length ? `<table><thead>${movHead}</thead><tbody>${movRows(rows)}</tbody></table>` : '<div class="empty">No movements found.</div>';
+    $('#movtable').innerHTML = rows.length ? `<table class="cards"><thead>${movHead()}</thead><tbody>${movRows(rows)}</tbody></table>` : '<div class="empty">No movements found.</div>';
   };
+  $('#clrprod')?.addEventListener('click', () => { state.movProduct = null; show(); });
   let timer; $('#mq').oninput = e => { state.movQ = e.target.value; clearTimeout(timer); timer = setTimeout(load, 250); };
   $('#mk').onchange = e => { state.movKind = e.target.value; load(); };
   await load();
@@ -395,6 +455,88 @@ function locationDialog(id) {
       await api(id ? '/locations/' + id : '/locations', { method: id ? 'PUT' : 'POST', body });
       toast('Location saved');
     });
+}
+
+/* ---------- reverse a movement (admin) ---------- */
+function reverseDialog(id) {
+  openDialog(`<form><h2>Reverse movement #${id}</h2>
+    <p class="muted">Books the opposite movement (both sides of a transfer), so the stock goes back to how it was. The original stays in the history. It is refused if that stock has been used since.</p>
+    <div class="field"><label>Reason (optional)</label><input name="note" placeholder="e.g. wrong quantity entered"></div>
+    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Reverse</button></div></form>`,
+    async v => { await api(`/movements/${id}/reverse`, { method: 'POST', body: { note: v.note } }); toast('Movement reversed'); });
+}
+
+/* ---------- dashboard chart ---------- */
+function activityChart(a) {
+  if (!a || a.every(x => !x.in && !x.out)) return '<div class="empty">No receipts or issues in the last 14 days.</div>';
+  const max = Math.max(1, ...a.flatMap(x => [x.in, x.out]));
+  const W = 700, H = 170, pad = 22, bw = (W - 2 * pad) / a.length, plot = H - 42;
+  const bars = a.map((x, i) => {
+    const x0 = pad + i * bw, hi = (x.in / max) * plot, ho = (x.out / max) * plot;
+    return `<g><title>${esc(x.date)}: ${x.in} received, ${x.out} issued</title>
+      <rect x="${x0 + 3}" y="${H - 22 - hi}" width="${bw / 2 - 4}" height="${hi}" rx="2" fill="var(--ok)"/>
+      <rect x="${x0 + bw / 2 + 1}" y="${H - 22 - ho}" width="${bw / 2 - 4}" height="${ho}" rx="2" fill="var(--accent)"/>
+      <text x="${x0 + bw / 2}" y="${H - 7}" text-anchor="middle" font-size="11" fill="var(--muted)">${esc(x.date.slice(8))}</text></g>`;
+  }).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Receipts and issues per day, last 14 days">
+      <line x1="${pad}" x2="${W - pad}" y1="${H - 22}" y2="${H - 22}" stroke="var(--line)"/><text x="0" y="12" font-size="11" fill="var(--muted)">${max}</text>${bars}</svg>
+    <div class="legend"><span><i style="background:var(--ok)"></i>Received</span><span><i style="background:var(--accent)"></i>Issued</span><span>movements per day, day of month shown</span></div>`;
+}
+
+/* ---------- barcode / QR scanning with the phone camera ---------- */
+let scannerLoading;
+function loadScanner() {
+  if (window.Html5Qrcode) return Promise.resolve();
+  scannerLoading ??= new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = '/static/vendor/html5-qrcode.min.js';
+    s.onload = resolve;
+    s.onerror = () => { scannerLoading = null; reject(new Error('The scanner could not be loaded')); };
+    document.head.appendChild(s);
+  });
+  return scannerLoading;
+}
+function scanCode() {   // resolves with the scanned text, or null when cancelled / unavailable
+  return new Promise(async resolve => {
+    try { await loadScanner(); } catch (e) { toast(e.message); return resolve(null); }
+    const dlg = $('#scan'), msg = $('#scanmsg');
+    let scanner, finished = false;
+    const finish = async value => {
+      if (finished) return; finished = true;
+      try { await scanner?.stop(); scanner?.clear(); } catch {}
+      if (dlg.open) dlg.close();
+      resolve(value);
+    };
+    $('#scancancel').onclick = () => finish(null);
+    dlg.oncancel = e => { e.preventDefault(); finish(null); };
+    msg.textContent = 'Starting the camera…';
+    dlg.showModal();
+    try {
+      scanner = new Html5Qrcode('reader');
+      await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 260, height: 170 } }, text => finish(text.trim()), () => {});
+      msg.textContent = 'Point the camera at the barcode or QR code.';
+    } catch (e) {
+      msg.textContent = (!window.isSecureContext)
+        ? 'The camera only works on a secure (https) address.'
+        : 'Could not open the camera. Allow camera access for this site, then try again.';
+    }
+  });
+}
+async function scanProduct(form) {   // fills the product field of the movement dialog
+  const code = await scanCode(); if (!code) return;
+  try {
+    const p = await api('/lookup?code=' + encodeURIComponent(code));
+    form.product.value = productLabel(p);
+    form.product.dispatchEvent(new Event('input', { bubbles: true }));
+    toast('Found ' + p.sku);
+  } catch (e) { toast(e.message); }
+}
+async function scanToSearch() {      // filters the stock list to the scanned product
+  const code = await scanCode(); if (!code) return;
+  try {
+    const p = await api('/lookup?code=' + encodeURIComponent(code));
+    state.stockFilter = p.sku; $('#sf').value = p.sku; $('#stocktable').innerHTML = stockTable();
+  } catch (e) { toast(e.message); }
 }
 
 /* ---------- users (admin) & own password ---------- */

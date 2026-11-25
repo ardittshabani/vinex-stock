@@ -1256,7 +1256,7 @@ async function viewAnActivity() {
   const f = state.af, d = await api('/analytics/activity?' + afQuery(f)), t = d.totals;
   const hours = []; for (let h = 5; h <= 21; h++) hours.push(h);
   const max = Math.max(1, ...d.heatmap.flat());
-  const shade = v => v ? `background:rgba(45,94,101,${(0.15 + 0.85 * v / max).toFixed(2)});color:${v / max > .5 ? '#fff' : 'var(--ink)'}` : '';
+  const shade = v => v ? `background:rgba(29,122,72,${(0.15 + 0.85 * v / max).toFixed(2)});color:${v / max > .5 ? '#fff' : 'var(--ink)'}` : '';
   const heat = `<div class="heat" style="--hours:${hours.length}"><div></div>${hours.map(h => `<div>${h}</div>`).join('')}
     ${d.heatmap.map((row, i) => `<div class="hl">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</div>${hours.map(h => `<div class="c" style="${shade(row[h])}" title="${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]} ${h}:00, ${row[h]} lines">${row[h] || ''}</div>`).join('')}`).join('')}</div>`;
   const off = d.heatmap.reduce((n, row) => n + row.slice(0, 5).concat(row.slice(22)).reduce((a, b) => a + b, 0), 0);
@@ -1272,14 +1272,14 @@ async function viewAnActivity() {
     <section class="panel" style="margin-bottom:14px"><div class="ph"><h2>Lines per day</h2></div><div class="pb" id="acchart"></div></section>
     <div class="cols">
       <section class="panel"><div class="ph"><h2>By person</h2></div>${d.people.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Person</th><th class="num">Lines</th><th class="num">Issued</th><th class="num">Received</th><th class="num">Counts</th><th class="num">Reversals</th><th>Last</th></tr></thead><tbody>
-        ${d.people.map(r => `<tr><td class="strong">${esc(r.operator)}</td><td data-label="Lines" class="num">${fmt(r.lines)}</td><td data-label="Issued" class="num">${fmt(r.issued)}</td><td data-label="Received" class="num">${fmt(r.received)}</td><td data-label="Counts" class="num">${fmt(r.stocktakes)}</td><td data-label="Reversals" class="num ${r.reversals ? 'adj' : ''}">${fmt(r.reversals)}</td><td data-label="Last" class="small muted">${esc(when(r.last))}</td></tr>`).join('')}
+        ${d.people.map(r => `<tr><td class="strong">${esc(r.operator)}</td><td data-label="Lines" class="num">${fmt(r.lines)}</td><td data-label="Issued" class="num ${r.issued ? 'outq' : 'muted'}">${fmt(r.issued)}</td><td data-label="Received" class="num ${r.received ? 'in' : 'muted'}">${fmt(r.received)}</td><td data-label="Counts" class="num">${fmt(r.stocktakes)}</td><td data-label="Reversals" class="num ${r.reversals ? 'adj' : ''}">${fmt(r.reversals)}</td><td data-label="Last" class="small muted">${esc(when(r.last))}</td></tr>`).join('')}
         </tbody></table></div>` : '<div class="empty">No movements in this period.</div>'}</section>
       <section class="panel"><div class="ph"><h2>By location</h2></div>${d.locations.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Location</th><th class="num">Lines</th><th class="num">Value in</th><th class="num">Value out</th></tr></thead><tbody>
-        ${d.locations.map(r => `<tr><td class="strong">${esc(r.location)}</td><td data-label="Lines" class="num">${fmt(r.lines)}</td><td data-label="Value in" class="num">${money(r.value_in)}</td><td data-label="Value out" class="num">${money(r.value_out)}</td></tr>`).join('')}
+        ${d.locations.map(r => `<tr><td class="strong">${esc(r.location)}</td><td data-label="Lines" class="num">${fmt(r.lines)}</td><td data-label="Value in" class="num ${r.value_in ? 'in' : 'muted'}">${money(r.value_in)}</td><td data-label="Value out" class="num ${r.value_out ? 'outq' : 'muted'}">${money(r.value_out)}</td></tr>`).join('')}
         </tbody></table></div>` : '<div class="empty">No movements in this period.</div>'}</section>
     </div>`;
   barsChart($('#acchart'), d.daily.map(x => new Date(x.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })),
-    [{ label: 'Issued', color: 'var(--accent)', values: d.daily.map(x => x.issued) }, { label: 'Received', color: '#8fb8bd', values: d.daily.map(x => x.received) },
+    [{ label: 'Issued', color: '#c0392b', values: d.daily.map(x => x.issued) }, { label: 'Received', color: '#1d7a48', values: d.daily.map(x => x.received) },
      { label: 'Transfers', color: '#b4bec8', values: d.daily.map(x => x.transfer) }, { label: 'Stocktake counts', color: '#d9a21b', values: d.daily.map(x => x.stocktake) }], { stacked: true, height: 170 });
   bindAf(f, 'vinex.af', viewAnActivity);
   $('[data-csv]').onclick = () => downloadCSV('warehouse-activity.csv', ['Date', 'Issued', 'Received', 'Transfers', 'Stocktake counts'], d.daily.map(x => [x.date, x.issued, x.received, x.transfer, x.stocktake]));

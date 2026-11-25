@@ -499,3 +499,25 @@ class ValueTurnoverTests(unittest.TestCase):
         self.assertEqual(d["months"][-1]["by_category"], {"Bolts": 600})
         self.assertEqual(len(d["months"]), 12)
         self.assertEqual(self.c.get("/api/export/turnover.csv").status_code, 200)
+
+
+class CacheTests(unittest.TestCase):
+    def test_saving_a_movement_refreshes_cached_numbers(self):
+        c = client_as("admin", ADMIN_PW)
+        db = stock.connect()
+        for t in ("movements", "products", "locations"):
+            db.execute(f"DELETE FROM {t}")
+        loc = db.execute("INSERT INTO locations(name) VALUES ('Main')").lastrowid
+        db.close()
+        pid = c.post("/api/products", json={"sku": "C1", "name": "Cached"}).get_json()["id"]
+        before = c.get("/api/dashboard").get_json()["movements_today"]
+        self.assertEqual(c.get("/api/dashboard").get_json()["movements_today"], before)   # served from cache
+        self.assertEqual(c.post("/api/movements", json={"kind": "IN", "product_id": pid, "location_id": loc, "qty": 5}).status_code, 201)
+        self.assertEqual(c.get("/api/dashboard").get_json()["movements_today"], before + 1)
+
+    def test_gzip(self):
+        c = client_as("admin", ADMIN_PW)
+        r = c.get("/", headers={"Accept-Encoding": "gzip"})
+        self.assertEqual(r.headers.get("Content-Encoding"), "gzip")
+        import gzip as gz
+        self.assertIn(b"<!DOCTYPE html>", gz.decompress(r.data))

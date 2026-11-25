@@ -4,9 +4,12 @@ Stock is an append-only ledger of movements; quantities on hand are always
 computed from the ledger, so every number can be traced back to who did what.
 """
 import csv
+import functools
+import gzip
 import io
 import os
 import sqlite3
+import threading
 import uuid
 from datetime import date, timedelta
 
@@ -80,7 +83,74 @@ def connect():
     db = sqlite3.connect(DB_PATH, isolation_level=None, timeout=10)  # we manage transactions
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys=ON")
+    db.execute("PRAGMA synchronous=NORMAL")    # safe with WAL, much faster writes
+    db.execute("PRAGMA cache_size=-20000")     # about 20 MB page cache per connection
+    db.execute("PRAGMA temp_store=MEMORY")
     return db
+
+
+# ---------------------------------------------------------------- result cache
+# Analytics read the whole ledger, so their results are kept until something is saved.
+# Every successful write bumps a counter in the database, which also covers several worker processes.
+_cache = {}
+_cache_lock = threading.Lock()
+
+
+def data_version(db):
+    return db.execute("SELECT value FROM settings WHERE key='data_version'").fetchone()
+
+
+def cached(fn):
+    @functools.wraps(fn)
+    def wrapper(*a, **kw):
+        db = get_db()
+        v = data_version(db)
+        key = (fn.__name__, request.query_string, v["value"] if v else "0", date.today().isoformat())
+        with _cache_lock:
+            hit = _cache.get(key)
+        if hit is not None:
+            return Response(hit, mimetype="application/json")
+        resp = fn(*a, **kw)
+        if resp.status_code == 200:
+            with _cache_lock:
+                if len(_cache) > 64:
+                    _cache.clear()
+                _cache[key] = resp.get_data()
+        return resp
+    return wrapper
+
+
+@app.after_request
+def bump_data_version(resp):
+    if request.method in ("POST", "PUT", "DELETE") and request.path.startswith("/api/") and resp.status_code < 400 \
+            and request.path not in ("/api/login", "/api/logout", "/api/me/password"):
+        db = connect()
+        try:
+            db.execute("""INSERT INTO settings(key, value) VALUES ('data_version', '1')
+                          ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1""")
+        finally:
+            db.close()
+    return resp
+
+
+@app.after_request
+def compress_and_cache(resp):
+    path = request.path
+    if path.startswith(("/static/vendor/", "/static/icons/")):
+        resp.headers["Cache-Control"] = "public, max-age=2592000"   # 30 days: fonts, scanner, icons
+    text_types = ("application/json", "text/html", "text/csv", "text/javascript", "application/javascript", "text/css")
+    if resp.direct_passthrough and resp.mimetype in text_types:
+        resp.direct_passthrough = False          # static text files (page, scanner script) are compressed too
+    if (resp.status_code == 200 and not resp.direct_passthrough and "gzip" in request.headers.get("Accept-Encoding", "")
+            and "Content-Encoding" not in resp.headers
+            and resp.mimetype in text_types):
+        data = resp.get_data()
+        if len(data) > 1024:
+            resp.set_data(gzip.compress(data, 5))
+            resp.headers["Content-Encoding"] = "gzip"
+            resp.headers["Content-Length"] = len(resp.get_data())
+            resp.vary.add("Accept-Encoding")
+    return resp
 
 
 def get_db():
@@ -109,6 +179,13 @@ def init_db():
         if column not in {r["name"] for r in db.execute(f"PRAGMA table_info({table})")}:
             db.execute(ddl)
     db.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_products_barcode ON products(barcode) WHERE barcode IS NOT NULL")
+    # indexes for the queries that grow with the number of movements
+    for ddl in ("CREATE INDEX IF NOT EXISTS ix_mov_reversal ON movements(reversal_of) WHERE reversal_of IS NOT NULL",
+                "CREATE INDEX IF NOT EXISTS ix_mov_kind_created ON movements(kind, created_at)",
+                "CREATE INDEX IF NOT EXISTS ix_mov_product_created ON movements(product_id, created_at)",
+                "CREATE INDEX IF NOT EXISTS ix_mov_product_lot ON movements(product_id, location_id, lot)"):
+        db.execute(ddl)
+    db.execute("PRAGMA optimize=0x10002")       # refresh query planner statistics
     if db.execute("SELECT COUNT(*) FROM locations").fetchone()[0] == 0:
         db.execute("INSERT INTO locations(name) VALUES ('Main warehouse')")
     db.close()
@@ -426,6 +503,7 @@ def availability():
 
 
 @app.get("/api/dashboard")
+@cached
 def dashboard():
     db = get_db()
     stock = stock_summary(db)
@@ -614,6 +692,7 @@ def insights_params():
 
 
 @app.get("/api/insights")
+@cached
 def get_insights():
     db = get_db()
     lead, window = insights_params()
@@ -621,6 +700,7 @@ def get_insights():
 
 
 @app.get("/api/insights/value")
+@cached
 def get_value_insights():
     db = get_db()
     _, window = insights_params()

@@ -24,7 +24,7 @@ def client_as(username, password):
 class StockTests(unittest.TestCase):
     def setUp(self):
         db = stock.connect()
-        for t in ("movements", "products", "locations"):
+        for t in ("counts", "movements", "products", "locations"):
             db.execute(f"DELETE FROM {t}")
         db.execute("INSERT INTO locations(name) VALUES ('Main'),('Packing')")
         db.close()
@@ -186,7 +186,7 @@ class AuthTests(unittest.TestCase):
         for name, role in (("sam", "staff"), ("vic", "viewer")):
             cls.admin.post("/api/users", json={"username": name, "password": "password-" + name, "role": role})
         db = stock.connect()
-        db.execute("DELETE FROM movements"); db.execute("DELETE FROM products"); db.execute("DELETE FROM locations")
+        db.execute("DELETE FROM counts"); db.execute("DELETE FROM movements"); db.execute("DELETE FROM products"); db.execute("DELETE FROM locations")
         db.execute("INSERT INTO locations(name) VALUES ('Main')")
         db.close()
         cls.pid = cls.admin.post("/api/products", json={"sku": "AUTH1", "name": "Auth bolt"}).get_json()["id"]
@@ -320,7 +320,7 @@ class InsightsTests(unittest.TestCase):
         import insights
         self.insights, self.today = insights, date.today()
         db = stock.connect()
-        for t in ("movements", "products", "locations"):
+        for t in ("counts", "movements", "products", "locations"):
             db.execute(f"DELETE FROM {t}")
         db.execute("INSERT INTO locations(name) VALUES ('Main')")
         loc = db.execute("SELECT id FROM locations").fetchone()[0]
@@ -402,7 +402,7 @@ class MaterialTests(unittest.TestCase):
     def setUp(self):
         from datetime import date, timedelta
         db = stock.connect()
-        for t in ("movements", "products", "locations"):
+        for t in ("counts", "movements", "products", "locations"):
             db.execute(f"DELETE FROM {t}")
         db.execute("INSERT INTO locations(name) VALUES ('Main')")
         db.close()
@@ -469,7 +469,7 @@ class ValueTurnoverTests(unittest.TestCase):
     def setUp(self):
         from datetime import date, timedelta
         db = stock.connect()
-        for t in ("movements", "products", "locations"):
+        for t in ("counts", "movements", "products", "locations"):
             db.execute(f"DELETE FROM {t}")
         db.execute("INSERT INTO locations(name) VALUES ('Main')")
         loc = db.execute("SELECT id FROM locations").fetchone()[0]
@@ -505,7 +505,7 @@ class CacheTests(unittest.TestCase):
     def test_saving_a_movement_refreshes_cached_numbers(self):
         c = client_as("admin", ADMIN_PW)
         db = stock.connect()
-        for t in ("movements", "products", "locations"):
+        for t in ("counts", "movements", "products", "locations"):
             db.execute(f"DELETE FROM {t}")
         loc = db.execute("INSERT INTO locations(name) VALUES ('Main')").lastrowid
         db.close()
@@ -521,3 +521,86 @@ class CacheTests(unittest.TestCase):
         self.assertEqual(r.headers.get("Content-Encoding"), "gzip")
         import gzip as gz
         self.assertIn(b"<!DOCTYPE html>", gz.decompress(r.data))
+
+
+class AnalyticsTests(unittest.TestCase):
+    def setUp(self):
+        from datetime import date, timedelta
+        self.today = date.today()
+        db = stock.connect()
+        for t in ("counts", "movements", "products", "locations"):
+            db.execute(f"DELETE FROM {t}")
+        self.loc = db.execute("INSERT INTO locations(name) VALUES ('Main')").lastrowid
+        self.loc2 = db.execute("INSERT INTO locations(name) VALUES ('Hall B')").lastrowid
+        self.pid = db.execute("INSERT INTO products(sku,name,category,unit_cost) VALUES ('B1','Bolt','Bolts',0.5)").lastrowid
+        self.nid = db.execute("INSERT INTO products(sku,name,category,unit_cost) VALUES ('N1','Nut','Nuts',0.1)").lastrowid
+        ins = lambda pid, kind, q, d, h=10, op="t", loc=None: db.execute(
+            "INSERT INTO movements(product_id,location_id,kind,qty,created_at,operator) VALUES (?,?,?,?,?,?)",
+            (pid, loc or self.loc, kind, q, f"{d} {h:02d}:00:00", op))
+        start = self.today - timedelta(days=179)
+        ins(self.pid, "IN", 100000, start)
+        ins(self.nid, "IN", 5000, start)
+        for i in range(180):                         # 100 bolts a day for 180 days, at 9:00 on the last 90 days
+            d = start + timedelta(days=i)
+            ins(self.pid, "OUT", -100, d, h=9 if i >= 90 else 14, op="ana" if i % 2 else "ben")
+        ins(self.nid, "OUT", -1000, self.today, h=8, op="ana")
+        db.commit()
+        db.close()
+        self.c = client_as("admin", ADMIN_PW)
+
+    def test_overview_period_comparison(self):
+        d = self.c.get("/api/analytics/overview").get_json()     # last 90 days vs the 90 before
+        self.assertEqual(d["kpi"]["issued_value"], 90 * 100 * 0.5 + 100)
+        self.assertEqual(d["previous"]["issued_value"], 90 * 100 * 0.5)
+        self.assertAlmostEqual(d["change"]["issued_value"], 2.2, places=1)
+        self.assertEqual(d["top_products"][0]["sku"], "B1")
+        self.assertEqual({c["category"] for c in d["categories"]}, {"Bolts", "Nuts"})
+        d = self.c.get("/api/analytics/overview?category=Nuts").get_json()
+        self.assertEqual(d["kpi"]["issued_value"], 100)
+        self.assertEqual(d["previous"]["issued_value"], 0)
+        self.assertIsNone(d["change"]["issued_value"])
+        self.assertEqual(self.c.get(f"/api/analytics/overview?location_id={self.loc2}").get_json()["kpi"]["issued_value"], 0)
+
+    def test_bad_filters(self):
+        self.assertEqual(self.c.get("/api/analytics/overview?from=2026-02-30").status_code, 400)
+        self.assertEqual(self.c.get("/api/analytics/overview?from=2026-05-01&to=2026-01-01").status_code, 400)
+        self.assertEqual(self.c.get("/api/analytics/product/99999").status_code, 404)
+
+    def test_product_deep_dive(self):
+        d = self.c.get(f"/api/analytics/product/{self.pid}").get_json()
+        self.assertEqual(d["period"]["days"], 180)                 # starts at the first movement, not a year back
+        self.assertEqual(d["summary"]["issued"], 18000)
+        self.assertEqual(d["summary"]["avg_per_day"], 100)
+        self.assertEqual(d["daily"][-1]["stock"], 100000 - 18000)
+        self.assertEqual(len(d["forecast"]), 12)
+        self.assertAlmostEqual(d["forecast"][0]["mid"], 700, delta=1)   # steady 700 a week
+        self.assertAlmostEqual(sum(w["share"] for w in d["weekday"]), 100, delta=0.5)   # rounded shares
+
+    def test_holt_forecast(self):
+        import analytics
+        self.assertEqual(analytics.holt_forecast([5] * 6), [])
+        f = analytics.holt_forecast([10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+        self.assertAlmostEqual(f[0]["mid"], 110, delta=0.5)
+        self.assertLessEqual(f[0]["low"], f[0]["mid"])
+        self.assertGreater(f[5]["high"] - f[5]["low"], f[0]["high"] - f[0]["low"] - 1e-9)
+
+    def test_activity(self):
+        d = self.c.get("/api/analytics/activity").get_json()
+        self.assertEqual(d["totals"]["issued"], 91)
+        self.assertEqual(d["totals"]["busiest_slot"]["hour"], 9)
+        self.assertEqual(sum(map(sum, d["heatmap"])), 91)
+        self.assertEqual({p["operator"] for p in d["people"]}, {"ana", "ben"})
+
+    def test_stocktake_accuracy(self):
+        post = lambda counted: self.c.post("/api/movements", json={"kind": "ADJUST", "product_id": self.nid, "location_id": self.loc, "counted": counted})
+        self.assertEqual(post(4000).status_code, 200)                    # matches: recorded, no movement
+        self.assertEqual(post(3990).status_code, 201)                    # 10 missing
+        d = self.c.get("/api/analytics/stocktake").get_json()
+        self.assertEqual(d["summary"]["counts"], 2)
+        self.assertEqual(d["summary"]["accuracy"], 50)
+        self.assertEqual(d["summary"]["loss"], 1.0)
+        self.assertEqual(d["differences"][0]["diff"], -10)
+        mid = stock.connect().execute("SELECT MAX(id) FROM movements WHERE kind='ADJUST'").fetchone()[0]
+        self.assertEqual(self.c.post(f"/api/movements/{mid}/reverse", json={}).status_code, 201)
+        d = self.c.get("/api/analytics/stocktake").get_json()
+        self.assertEqual((d["summary"]["counts"], d["summary"]["accuracy"]), (1, 100))   # the wrong count is dropped

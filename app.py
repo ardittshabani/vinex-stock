@@ -15,6 +15,7 @@ from datetime import date, timedelta
 
 from flask import Flask, Response, g, jsonify, request, send_from_directory
 
+import analytics
 import auth
 import insights
 import prodata
@@ -69,6 +70,18 @@ CREATE TABLE IF NOT EXISTS users(
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
+CREATE TABLE IF NOT EXISTS counts(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    location_id INTEGER NOT NULL REFERENCES locations(id),
+    lot TEXT NOT NULL DEFAULT '',
+    system_qty REAL NOT NULL,
+    counted REAL NOT NULL,
+    movement_id INTEGER,
+    operator TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS ix_counts_created ON counts(created_at);
 CREATE TABLE IF NOT EXISTS settings(
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -105,7 +118,7 @@ def cached(fn):
     def wrapper(*a, **kw):
         db = get_db()
         v = data_version(db)
-        key = (fn.__name__, request.query_string, v["value"] if v else "0", date.today().isoformat())
+        key = (fn.__name__, request.full_path, v["value"] if v else "0", date.today().isoformat())
         with _cache_lock:
             hit = _cache.get(key)
         if hit is not None:
@@ -185,6 +198,15 @@ def init_db():
                 "CREATE INDEX IF NOT EXISTS ix_mov_product_created ON movements(product_id, created_at)",
                 "CREATE INDEX IF NOT EXISTS ix_mov_product_lot ON movements(product_id, location_id, lot)"):
         db.execute(ddl)
+    # stocktakes recorded before the counts table existed: rebuild them from the adjustment notes
+    if not db.execute("SELECT 1 FROM settings WHERE key='counts_backfilled'").fetchone():
+        import re
+        for m in db.execute("SELECT * FROM movements WHERE kind='ADJUST' AND reversal_of IS NULL AND note LIKE '%Stocktake: counted%'").fetchall():
+            hit = re.search(r"Stocktake: counted (-?[\d.e+]+), system had (-?[\d.e+]+)", m["note"])
+            if hit:
+                db.execute("INSERT INTO counts(product_id, location_id, lot, system_qty, counted, movement_id, operator, created_at) VALUES (?,?,?,?,?,?,?,?)",
+                           (m["product_id"], m["location_id"], m["lot"] or "", float(hit[2]), float(hit[1]), m["id"], m["operator"], m["created_at"]))
+        db.execute("INSERT INTO settings(key, value) VALUES ('counts_backfilled', '1')")
     db.execute("PRAGMA optimize=0x10002")       # refresh query planner statistics
     if db.execute("SELECT COUNT(*) FROM locations").fetchone()[0] == 0:
         db.execute("INSERT INTO locations(name) VALUES ('Main warehouse')")
@@ -599,11 +621,16 @@ def post_movement():
             counted = num(d.get("counted"), "Counted quantity", 0)
             have = balance(db, pid, lid, lot)
             delta = round(counted - have, 3)
-            if abs(delta) < 0.0005:
+            mid = None
+            if abs(delta) >= 0.0005:
+                mid = insert_movement(db, pid, lid, "ADJUST", delta, lot, reference,
+                                      (note + " | " if note else "") + f"Stocktake: counted {counted:g}, system had {have:g}", operator)
+            # every count is recorded, matching or not, so count accuracy can be measured
+            db.execute("INSERT INTO counts(product_id, location_id, lot, system_qty, counted, movement_id, operator) VALUES (?,?,?,?,?,?,?)",
+                       (pid, lid, lot or "", have, counted, mid, operator))
+            if mid is None:
                 db.execute("COMMIT")
                 return jsonify(ok=True, changed=False, message="Count matches the system - no adjustment needed")
-            insert_movement(db, pid, lid, "ADJUST", delta, lot, reference,
-                            (note + " | " if note else "") + f"Stocktake: counted {counted:g}, system had {have:g}", operator)
         db.execute("COMMIT")
     except Exception:
         db.execute("ROLLBACK")
@@ -645,6 +672,8 @@ def reverse_movement(mid):
             if -r["qty"] < 0 and (balance(db, r["product_id"], r["location_id"]) < -1e-9
                                   or (r["lot"] and balance(db, r["product_id"], r["location_id"], r["lot"]) < -1e-9)):
                 raise ApiError("Cannot reverse: that stock has already been used or moved")
+        # a reversed stocktake was a wrong count: leave it out of count accuracy
+        db.executemany("DELETE FROM counts WHERE movement_id = ?", [(r["id"],) for r in legs])
         db.execute("COMMIT")
     except Exception:
         db.execute("ROLLBACK")
@@ -716,6 +745,59 @@ def export_turnover():
             for r in data["products"]]
     return csv_response("turnover.csv", ["SKU", "Name", "Category", "Value now (€)", f"Average value, last {window} days (€)",
                                          f"Value issued, last {window} days (€)", "Turnover per year", "Days of inventory"], rows)
+
+
+# ---------------------------------------------------------------- analytics module
+def analytics_filter():
+    """Shared filters: from / to (YYYY-MM-DD, default the last 90 days), category, location_id."""
+    def day(key, default):
+        v = request.args.get(key, "").strip()
+        if not v:
+            return default
+        try:
+            return date.fromisoformat(v)
+        except ValueError:
+            raise ApiError(f"{key} must be a date like 2026-01-31")
+    end = day("to", date.today())
+    start = day("from", end - timedelta(days=89))
+    if start > end:
+        raise ApiError("The start date must be before the end date")
+    if (end - start).days > 1100:
+        raise ApiError("Choose a period of at most 3 years")
+    return {"start": start, "end": end, "category": request.args.get("category", "").strip() or None,
+            "location_id": request.args.get("location_id", type=int)}
+
+
+@app.get("/api/analytics/overview")
+@cached
+def analytics_overview():
+    db = get_db()
+    return jsonify(analytics.overview(db, analytics_filter(), stock_summary(db)))
+
+
+@app.get("/api/analytics/product/<int:pid>")
+@cached
+def analytics_product(pid):
+    db = get_db()
+    row = next((s for s in stock_summary(db) if s["id"] == pid), None)
+    if row is None:
+        raise ApiError("Product not found", 404)
+    f = analytics_filter()
+    if not request.args.get("from"):
+        f["start"] = f["end"] - timedelta(days=364)   # a product's story needs a year by default
+    return jsonify(analytics.product(db, pid, f, row))
+
+
+@app.get("/api/analytics/activity")
+@cached
+def analytics_activity():
+    return jsonify(analytics.activity(get_db(), analytics_filter()))
+
+
+@app.get("/api/analytics/stocktake")
+@cached
+def analytics_stocktake():
+    return jsonify(analytics.stocktake(get_db(), analytics_filter()))
 
 
 @app.get("/api/export/insights.csv")

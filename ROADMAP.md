@@ -10,10 +10,15 @@ Built one at a time. Each item lands on the Insights page unless noted.
 - [x] **Stock value over time and inventory turnover**: monthly stock value by category; turnover and days of inventory per product and category
 - [x] **Raw material forecast**: link finished products to their wire rod (kg per 1,000 pcs) and see the material needed for production now and per 30 days, how long it lasts, and what to order
 
+- [x] **Analytics module** (menu group *Analytics*, shared period / category / location filters, CSV on every page):
+  - Overview: issued, received and movements compared with the previous period, weekly value chart, top products and categories, alerts
+  - Product analysis: stock level over time, weekly use with a 12-week forecast and likely range (Holt), weekday and monthly patterns, references, lots, people
+  - Warehouse activity: weekday x hour heatmap, lines per day, by person, by location
+  - Stocktake accuracy: every count recorded (also matching ones), accuracy %, value lost and found by location, person and product
+
 ## Next
+- [ ] **Seasonal forecast**: add yearly seasonality (Holt-Winters) once there are two years of history
 - [ ] **Weekly report for management**: Monday summary of what to order, what ran low, unusual movements and stock value
-- [ ] **Seasonal forecast with a likely range**: Holt-Winters on weekly demand, with a prediction interval
-- [ ] **Stocktake accuracy**: count differences per product, location and person
 - [ ] **Heat number traceability**: from a lot, back to the wire-rod heat number and forward to every delivery from the same heat
 - [ ] **Products used together**: which items are issued on the same reference (bolt + nut + washer kits)
 - [ ] **Supplier lead-time learning**: record order dates and learn each supplier's real lead time and its variation

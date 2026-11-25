@@ -15,6 +15,6 @@
   ],
   "shortcuts": [
     { "name": "Stock", "url": "/?tab=stock" },
-    { "name": "Insights", "url": "/?tab=insights" }
+    { "name": "Analytics", "url": "/?tab=an-overview" }
   ]
 }

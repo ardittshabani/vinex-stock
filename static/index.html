@@ -79,6 +79,23 @@
   .statusbar .ok::before { content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--ok); margin-right:6px; }
 
 
+
+  /* ---------- analytics ---------- */
+  .afbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; padding:8px 10px; background:#fff; border:1px solid var(--line); border-radius:var(--r-panel); }
+  .afbar label { display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:12px; }
+  .afbar .sp { flex:1; }
+  .chg { font-size:12px; font-weight:500; margin-left:6px; } .chg.up { color:var(--ok); } .chg.down { color:var(--out); } .chg.flat { color:var(--muted); }
+  .chg.inv.up { color:var(--out); } .chg.inv.down { color:var(--ok); }
+  .bar { height:8px; background:var(--line-2); border-radius:2px; min-width:60px; } .bar > span { display:block; height:100%; background:var(--accent); border-radius:2px; }
+  tr.click { cursor:pointer; }
+  .heat { display:grid; grid-template-columns:34px repeat(var(--hours), 1fr); gap:2px; font-size:11px; color:var(--muted); }
+  .heat div { height:22px; border-radius:2px; display:grid; place-items:center; }
+  .heat .hl { justify-content:start; } .heat .c { background:var(--line-2); color:transparent; }
+  .heat .c:hover { outline:1px solid var(--ink); color:var(--ink); }
+  .alist { list-style:none; margin:0; padding:0; } .alist li { display:flex; gap:10px; align-items:baseline; padding:7px 12px; border-bottom:1px solid var(--line-2); }
+  .alist li:last-child { border-bottom:0; } .alist b { min-width:42px; text-align:right; font-size:15px; } .alist .x { color:var(--muted); font-size:12px; }
+  .picker { display:flex; gap:8px; align-items:center; flex:1; min-width:260px; } .picker input { flex:1; }
+
   /* ---------- panels ---------- */
   .panel { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-panel); }
   .panel > .ph { display:flex; align-items:center; gap:12px; padding:0 12px; height:34px; border-bottom:1px solid var(--line); background:#f3f5f6; }
@@ -296,7 +313,7 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = n => (n == null ? '' : Number(n).toLocaleString('en-GB', { maximumFractionDigits: 2 }));
-const money = n => '€' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = n => (n < 0 ? '−€' : '€') + Math.abs(Number(n)).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
                 set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 
@@ -318,6 +335,11 @@ const ICONS = {
   key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l2.5 2.5"/>',
   out: '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>',
   chevron: '<path d="m9 6 6 6-6 6"/>',
+  trend: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',
+  cart: '<path d="M3 4h2l2.4 11h11l2-8H6.2"/><circle cx="9" cy="20" r="1.3"/><circle cx="17" cy="20" r="1.3"/>',
+  coins: '<ellipse cx="9" cy="7" rx="6" ry="2.6"/><path d="M3 7v5c0 1.4 2.7 2.6 6 2.6s6-1.2 6-2.6V7M9 17.2c0 1.4 2.7 2.6 6 2.6s6-1.2 6-2.6v-5c0-1.4-2.7-2.6-6-2.6"/>',
+  pulse: '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  clip: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11l2 2 4-4M9 17h6"/>',
 };
 const icon = (n, cls = 'i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
 const CREDIT = 'Developed by Ardit Shabani';
@@ -346,9 +368,12 @@ const state = { tab: 'dashboard', user: null, users: [], products: [], locations
   lead: store.get('vinex.lead', 14), insView: store.get('vinex.insView', 'reorder'), window: store.get('vinex.window', 90), insAll: false };
 const TABS = [['dashboard','Home','home','Stock'],['stock','Stock list','stock','Stock'],['movements','Movements','moves','Stock'],
               ['products','Products','products','Catalogue'],['locations','Locations','locations','Catalogue'],
-              ['insights','Insights','insights','Analysis'],['users','Users','users','Administration']];
+              ['an-overview','Overview','insights','Analytics'],['an-product','Product analysis','trend','Analytics'],
+              ['an-reorder','Reorder and materials','cart','Analytics'],['an-value','Value and turnover','coins','Analytics'],
+              ['an-activity','Warehouse activity','pulse','Analytics'],['an-stocktake','Stocktake accuracy','clip','Analytics'],
+              ['users','Users','users','Administration']];
 const tabInfo = k => TABS.find(t => t[0] === k);
-const PHONE_TABS = ['dashboard', 'stock', 'insights', 'movements'];
+const PHONE_TABS = ['dashboard', 'stock', 'an-overview', 'movements'];
 const isAdmin = () => state.user?.role === 'admin';
 const canMove = () => ['admin', 'staff'].includes(state.user?.role);
 const KIND_LABEL = { IN:'Received', OUT:'Issued', ADJUST:'Stocktake', TRANSFER_IN:'Transfer in', TRANSFER_OUT:'Transfer out' };
@@ -391,8 +416,8 @@ function renderNav() {
   let grp = '';
   $('#nav').innerHTML = visibleTabs().map(([k, l, ic, g]) => (g !== grp ? `<div class="grp">${grp = g}</div>` : '') +
     `<button data-tab="${k}" class="${state.tab === k ? 'active' : ''}" ${state.tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${l}</button>`).join('');
-  const inMore = !PHONE_TABS.includes(state.tab);
-  $('#tabbar').innerHTML = PHONE_TABS.map(k => TABS.find(t => t[0] === k)).map(([k, l, ic]) => `<button data-tab="${k}" class="${state.tab === k ? 'active' : ''}">${icon(ic)}${{ 'Stock list': 'Stock' }[l] || l}</button>`).join('')
+  const inMore = !PHONE_TABS.includes(state.tab) && !state.tab.startsWith('an-');
+  $('#tabbar').innerHTML = PHONE_TABS.map(k => TABS.find(t => t[0] === k)).map(([k, l, ic]) => `<button data-tab="${k}" class="${state.tab === k || (k === 'an-overview' && state.tab.startsWith('an-')) ? 'active' : ''}">${icon(ic)}${{ 'Stock list': 'Stock', 'Overview': 'Analytics' }[l] || l}</button>`).join('')
     + `<button data-more class="${inMore ? 'active' : ''}">${icon('more')}More</button>`;
   $$('#nav button, #tabbar button[data-tab]').forEach(b => b.onclick = () => go(b.dataset.tab));
   $('#tabbar [data-more]').onclick = moreSheet;
@@ -556,7 +581,7 @@ function stockTable() {
     <td class="num c-qty"><span class="qty">${fmt(s.total)}</span><span class="unit">${esc(s.unit)}</span>
       ${s.locations.length > 1 ? `<div class="sub">${s.locations.length} locations</div>` : s.locations.length ? `<div class="sub">${esc(s.locations[0].location)}</div>` : ''}</td>
     <td class="c-status">${statusPill(s.status)}</td>
-    <td class="rowacts"><button class="link" onclick="lotsDialog(${s.id})">Details</button><button class="link" onclick="showHistory(${s.id})">History</button></td></tr>`).join('')}</tbody></table>
+    <td class="rowacts"><button class="link" onclick="lotsDialog(${s.id})">Details</button><button class="link" onclick="showHistory(${s.id})">History</button><button class="link" onclick="openProduct(${s.id})">Analysis</button></td></tr>`).join('')}</tbody></table>
     <div class="gridfoot"><span>Showing ${rows.length} of ${state.stock.length} products</span><span>Value on hand ${money(rows.reduce((t, s) => t + Math.max(s.total, 0) * (s.unit_cost || 0), 0))}</span></div>`;
 }
 const SORTERS = {
@@ -603,7 +628,7 @@ async function lotsDialog(pid) {
     <p class="muted" style="margin:-10px 0 16px">${esc(p.name)}${p.spec ? ` · ${esc(p.spec)}` : ''}</p>
     ${s ? `<div style="margin-bottom:16px">${gauge(s)}<div class="small muted" style="margin-top:6px">${fmt(s.total)} ${esc(p.unit)} on hand${p.min_stock ? `, minimum ${fmt(p.min_stock)}` : ''}</div></div>` : ''}
     ${rows.length ? `<div class="panel tablewrap"><table><thead><tr><th>Location</th><th>Lot / heat no.</th><th class="num">Qty</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.location)}</td><td>${esc(r.lot) || '<span class="muted">No lot</span>'}</td><td class="num"><span class="qty">${fmt(r.qty)}</span><span class="unit">${esc(p.unit)}</span></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No stock.</div>'}
-    <div class="actions"><button type="button" class="btn" onclick="showHistory(${pid})">History</button>
+    <div class="actions"><button type="button" class="btn" onclick="$('#dlg').close();openProduct(${pid})">Analysis</button><button type="button" class="btn" onclick="showHistory(${pid})">History</button>
       ${canMove() ? `<button type="button" class="btn" onclick="$('#dlg').close();movementDialog('OUT',${pid})">Issue</button><button type="button" class="btn primary" onclick="$('#dlg').close();movementDialog('IN',${pid})">Receive</button>` : '<button class="btn primary">Close</button>'}</div></form>`;
   dlg.showModal();
 }
@@ -672,9 +697,8 @@ const rate = n => !n ? '—' : n >= 10 ? fmt(Math.round(n)) : fmt(Math.round(n *
 const shortDate = s => new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 const days = n => n == null ? '—' : n === 0 ? 'None left' : n === 1 ? '1 day' : `${fmt(n)} days`;
 function insightsHead(sub, csvHref, showLead) {
-  return phead('Insights', sub, `<a class="btn" href="${csvHref}">${icon('download')}Download CSV</a>`) + `
+  return phead(state.insView === 'value' ? 'Value and turnover' : 'Reorder and materials', sub, `<a class="btn" href="${csvHref}">${icon('download')}Download CSV</a>`) + `
     <div class="filters">
-      <div class="seg" role="group" aria-label="View"><button data-iv="reorder" class="${state.insView !== 'value' ? 'on' : ''}">Reorder and demand</button><button data-iv="value" class="${state.insView === 'value' ? 'on' : ''}">Value and turnover</button></div>
       ${showLead ? `<label class="check">Supplier lead time <input type="number" id="lead" min="1" max="365" value="${state.lead}" style="width:72px"> days</label>` : ''}
       <label class="check">History <select id="win">${[30, 90, 180, 365].map(w => `<option value="${w}" ${w === state.window ? 'selected' : ''}>${w} days</option>`).join('')}</select></label>
     </div>`;
@@ -683,7 +707,6 @@ function bindInsightsHead() {
   const reload = () => { store.set('vinex.lead', state.lead); store.set('vinex.window', state.window); viewInsights().catch(e => toast(e.message)); };
   $('#lead')?.addEventListener('change', e => { const v = +e.target.value; if (v >= 1 && v <= 365) { state.lead = v; reload(); } });
   $('#win').onchange = e => { state.window = +e.target.value; reload(); };
-  $$('[data-iv]').forEach(b => b.onclick = () => { state.insView = b.dataset.iv; store.set('vinex.insView', state.insView); viewInsights(); });
 }
 async function viewInsights() {
   if (state.insView === 'value') return viewValue();
@@ -741,7 +764,7 @@ async function viewInsights() {
 }
 
 const CAT_COLORS = ['#0f3b63', '#4a86c5', '#f2c230', '#2a9d8f', '#8c6bb1'], OTHER_COLOR = '#b4bec8';
-const moneyShort = n => n >= 1e6 ? '€' + (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? '€' + Math.round(n / 1e3) + 'k' : n >= 1e3 ? '€' + (n / 1e3).toFixed(1) + 'k' : '€' + Math.round(n);
+const moneyShort = n => { const a = Math.abs(n), t = a >= 1e6 ? (a / 1e6).toFixed(1) + 'M' : a >= 1e4 ? Math.round(a / 1e3) + 'k' : a >= 1e3 ? (a / 1e3).toFixed(1) + 'k' : String(Math.round(a)); return (n < 0 ? '−€' : '€') + t; };
 const turns = t => t == null ? '—' : `${fmt(t)}×`;
 async function viewValue() {
   const d = await api('/insights/value?window=' + state.window), s = d.summary;
@@ -1042,9 +1065,254 @@ function passwordDialog() {
     });
 }
 
-const VIEWS = { dashboard: viewDashboard, stock: viewStock, insights: viewInsights, products: viewProducts, movements: viewMovements, locations: viewLocations, users: viewUsers };
+
+/* ---------- analytics module ---------- */
+const PRESETS = [['30', 'Last 30 days'], ['90', 'Last 90 days'], ['365', 'Last 12 months'], ['ytd', 'This year'], ['ly', 'Last year'], ['custom', 'Custom period']];
+state.af = store.get('vinex.af', { preset: '90', from: '', to: '', category: '', location: '' });
+state.pf = store.get('vinex.pf', { preset: '365', from: '', to: '', location: '' });
+const iso = d => d.toISOString().slice(0, 10);
+function afRange(f) {
+  const t = new Date(), y = t.getFullYear();
+  if (f.preset === 'custom' && f.from && f.to) return [f.from, f.to];
+  if (f.preset === 'ytd') return [`${y}-01-01`, iso(t)];
+  if (f.preset === 'ly') return [`${y - 1}-01-01`, `${y - 1}-12-31`];
+  const n = +f.preset || 90, s = new Date(t); s.setDate(t.getDate() - n + 1);
+  return [iso(s), iso(t)];
+}
+function afQuery(f) {
+  const [from, to] = afRange(f);
+  const q = new URLSearchParams({ from, to });
+  if (f.category) q.set('category', f.category);
+  if (f.location) q.set('location_id', f.location);
+  return q.toString();
+}
+function afBar(f, { category = true, extra = '' } = {}) {
+  const cats = [...new Set(state.products.map(p => p.category).filter(Boolean))].sort();
+  const [from, to] = afRange(f);
+  return `<div class="afbar">${extra}
+    <label>Period <select data-af="preset">${PRESETS.map(([k, l]) => `<option value="${k}" ${f.preset === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    ${f.preset === 'custom' ? `<label>From <input type="date" data-af="from" value="${from}"></label><label>To <input type="date" data-af="to" value="${to}"></label>` : ''}
+    ${category ? `<label>Category <select data-af="category"><option value="">All</option>${cats.map(c => `<option ${f.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>` : ''}
+    <label>Location <select data-af="location"><option value="">All</option>${state.locations.map(l => `<option value="${l.id}" ${String(f.location) === String(l.id) ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}</select></label>
+    <span class="sp"></span><span class="muted small" id="afrange">${shortD(from)} to ${shortD(to)}</span></div>`;
+}
+function bindAf(f, key, reload) {
+  $$('[data-af]').forEach(el => el.onchange = () => {
+    f[el.dataset.af] = el.value;
+    if (el.dataset.af === 'preset' && el.value === 'custom' && !f.from) [f.from, f.to] = afRange({ preset: '90' });
+    store.set(key, f); reload();
+  });
+}
+const shortD = s => new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const chg = (p, inverse) => p == null ? '' : `<span class="chg ${p > 0.05 ? 'up' : p < -0.05 ? 'down' : 'flat'} ${inverse ? 'inv' : ''}">${p > 0.05 ? '▲' : p < -0.05 ? '▼' : '='} ${fmt(Math.abs(p))}%</span>`;
+const shareBar = (v, max) => `<div class="bar"><span style="width:${max ? Math.max(1, v / max * 100) : 0}%"></span></div>`;
+function downloadCSV(name, header, rows) {
+  const cell = v => { const t = String(v ?? ''); return /[",\n;]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+  const blob = new Blob(['﻿' + [header, ...rows].map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+const csvBtn = `<button class="btn" data-csv>${icon('download')}Download CSV</button>`;
+function openProduct(id) { state.anProduct = id; go('an-product'); }
+
+/* simple SVG charts */
+function barsChart(el, labels, series, { stacked = false, money: isMoney = false, height = 190, every } = {}) {
+  const total = i => series.reduce((t, s) => t + (s.values[i] || 0), 0);
+  const max = Math.max(1, ...labels.map((_, i) => stacked ? total(i) : Math.max(...series.map(s => s.values[i] || 0))));
+  const W = Math.max(280, el.clientWidth - 24), H = height, left = isMoney ? 50 : 34, bottom = 22, plot = H - bottom - 8, bw = (W - left) / labels.length;
+  const yl = v => isMoney ? moneyShort(v) : fmt(Math.round(v));
+  const grid = [0, .5, 1].map(t => `<line x1="${left}" x2="${W}" y1="${H - bottom - t * plot}" y2="${H - bottom - t * plot}" stroke="var(--line-2)"/><text x="${left - 5}" y="${H - bottom - t * plot + 4}" text-anchor="end" font-size="10.5" fill="var(--faint)">${yl(max * t)}</text>`).join('');
+  const step = every || Math.ceil(labels.length / Math.max(4, Math.floor((W - left) / 46)));
+  const g = labels.map((lab, i) => {
+    let out = '', y = H - bottom;
+    const inner = bw * (stacked || series.length === 1 ? .7 : .8), x0 = left + i * bw + (bw - inner) / 2;
+    series.forEach((s, k) => {
+      const v = s.values[i] || 0, h = v / max * plot;
+      if (stacked) { y -= h; out += `<rect x="${x0}" y="${y}" width="${inner}" height="${h}" fill="${s.color}"/>`; }
+      else { const w = inner / series.length; out += `<rect x="${x0 + k * w}" y="${H - bottom - h}" width="${Math.max(1, w - 1)}" height="${h}" fill="${s.color}"/>`; }
+    });
+    const tip = `${lab}: ` + series.map(s => `${s.label} ${isMoney ? money(s.values[i] || 0) : fmt(s.values[i] || 0)}`).join(', ');
+    return `<g><title>${esc(tip)}</title>${out}${i % step === 0 ? `<text x="${left + i * bw + bw / 2}" y="${H - 6}" text-anchor="middle" font-size="10.5" fill="var(--faint)">${esc(lab)}</text>` : ''}</g>`;
+  }).join('');
+  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${grid}${g}</svg>
+    <div class="legend">${series.map(s => `<span><i style="background:${s.color}"></i>${s.label}</span>`).join('')}</div>`;
+}
+function stockLineChart(el, days, minStock, unit) {
+  const W = Math.max(280, el.clientWidth - 24), H = 200, left = 52, bottom = 22, plot = H - bottom - 10;
+  const vals = days.map(d => d.stock), max = Math.max(1, ...vals, minStock || 0) * 1.05, min = Math.min(0, ...vals);
+  const X = i => left + i / Math.max(1, days.length - 1) * (W - left - 6), Y = v => H - bottom - (v - min) / (max - min) * plot;
+  const path = days.map((d, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(d.stock).toFixed(1)}`).join('');
+  const area = `${path}L${X(days.length - 1)},${Y(min)}L${X(0)},${Y(min)}Z`;
+  const grid = [0, .5, 1].map(t => { const v = min + (max - min) * t; return `<line x1="${left}" x2="${W}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line-2)"/><text x="${left - 5}" y="${Y(v) + 4}" text-anchor="end" font-size="10.5" fill="var(--faint)">${fmt(Math.round(v))}</text>`; }).join('');
+  const months = days.map((d, i) => [d, i]).filter(([d]) => d.date.endsWith('-01'));
+  const every = Math.ceil(months.length / Math.max(3, Math.floor(W / 70)));
+  const ticks = months.filter((_, k) => k % every === 0).map(([d, i]) => `<text x="${X(i)}" y="${H - 6}" text-anchor="middle" font-size="10.5" fill="var(--faint)">${new Date(d.date).toLocaleDateString('en-GB', { month: 'short' })}</text>`).join('');
+  const minLine = minStock ? `<line x1="${left}" x2="${W}" y1="${Y(minStock)}" y2="${Y(minStock)}" stroke="var(--low)" stroke-dasharray="4 3"/>` : '';
+  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Stock level over time">${grid}<path d="${area}" fill="#dceaec"/><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="1.6"/>${minLine}${ticks}</svg>
+    <div class="legend"><span><i style="background:var(--accent)"></i>Stock on hand (${esc(unit)})</span>${minStock ? `<span><i style="background:var(--low)"></i>Minimum ${fmt(minStock)}</span>` : ''}</div>`;
+}
+function forecastChart(el, weekly, fc, unit) {
+  const W = Math.max(280, el.clientWidth - 24), H = 200, left = 46, bottom = 22, plot = H - bottom - 10;
+  const all = [...weekly.map(w => ({ week: w.week, v: w.issued })), ...fc.map(f => ({ week: f.week, f }))];
+  if (!all.length) { el.innerHTML = '<div class="empty"><b>No issues in this period</b></div>'; return; }
+  const max = Math.max(1, ...weekly.map(w => w.issued), ...fc.map(f => f.high)) * 1.05, bw = (W - left) / all.length;
+  const Y = v => H - bottom - v / max * plot, cx = i => left + i * bw + bw / 2;
+  const bars = weekly.map((w, i) => `<rect x="${left + i * bw + bw * .15}" y="${Y(w.issued)}" width="${bw * .7}" height="${H - bottom - Y(w.issued)}" fill="var(--accent)"><title>Week of ${shortD(w.week)}: ${fmt(w.issued)} ${esc(unit)}</title></rect>`).join('');
+  const o = weekly.length;
+  const band = fc.length ? `<path d="${fc.map((f, k) => `${k ? 'L' : 'M'}${cx(o + k)},${Y(f.high)}`).join('')}${[...fc].reverse().map((f, k) => `L${cx(o + fc.length - 1 - k)},${Y(f.low)}`).join('')}Z" fill="#f6e3a8" opacity=".8"/>
+    <path d="${fc.map((f, k) => `${k ? 'L' : 'M'}${cx(o + k)},${Y(f.mid)}`).join('')}" fill="none" stroke="#9c5d00" stroke-width="1.8" stroke-dasharray="5 3"/>
+    ${fc.map((f, k) => `<circle cx="${cx(o + k)}" cy="${Y(f.mid)}" r="6" fill="transparent"><title>Week of ${shortD(f.week)}: about ${fmt(Math.round(f.mid))} ${esc(unit)} (likely ${fmt(Math.round(f.low))} to ${fmt(Math.round(f.high))})</title></circle>`).join('')}` : '';
+  const grid = [0, .5, 1].map(t => `<line x1="${left}" x2="${W}" y1="${Y(max * t)}" y2="${Y(max * t)}" stroke="var(--line-2)"/><text x="${left - 5}" y="${Y(max * t) + 4}" text-anchor="end" font-size="10.5" fill="var(--faint)">${fmt(Math.round(max * t))}</text>`).join('');
+  const every = Math.ceil(all.length / Math.max(4, Math.floor((W - left) / 56)));
+  const ticks = all.map((a, i) => i % every === 0 ? `<text x="${cx(i)}" y="${H - 6}" text-anchor="middle" font-size="10.5" fill="var(--faint)">${new Date(a.week).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</text>` : '').join('');
+  const now = fc.length ? `<line x1="${left + o * bw}" x2="${left + o * bw}" y1="6" y2="${H - bottom}" stroke="var(--faint)" stroke-dasharray="2 3"/>` : '';
+  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly use and forecast">${grid}${bars}${band}${now}${ticks}</svg>
+    <div class="legend"><span><i style="background:var(--accent)"></i>Issued per week</span>${fc.length ? '<span><i style="background:#9c5d00"></i>Forecast</span><span><i style="background:#f6e3a8"></i>Likely range (8 in 10 weeks fall inside)</span>' : '<span>A forecast needs at least 8 weeks of history</span>'}</div>`;
+}
+
+async function viewAnOverview() {
+  const f = state.af, d = await api('/analytics/overview?' + afQuery(f)), k = d.kpi, c = d.change, a = d.alerts;
+  const maxTop = Math.max(...d.top_products.map(t => t.value), 0), maxCat = Math.max(...d.categories.map(t => t.value), 0);
+  $('#view').innerHTML = phead('Analytics overview', `Compared with ${shortD(d.period.prev_start)} to ${shortD(d.period.prev_end)}`, csvBtn) + afBar(f) + `
+    <div class="strip" style="--n:4">
+      <div><div class="v">${money(k.issued_value)}${chg(c.issued_value)}</div><div class="l">Issued, ${fmt(k.issue_lines)} lines, ${k.products_issued} products</div></div>
+      <div><div class="v">${money(k.received_value)}${chg(c.received_value)}</div><div class="l">Received, ${fmt(k.receipt_lines)} lines</div></div>
+      <div><div class="v">${fmt(k.movements)}${chg(c.movements)}</div><div class="l">Movements booked</div></div>
+      <div class="${d.stock.out ? 'bad' : d.stock.low ? 'warn' : ''}"><div class="v">${money(d.stock.value)}</div><div class="l">Stock value now, ${d.stock.low + d.stock.out} at or below minimum</div></div>
+    </div>
+    <div class="cols wide-left" style="margin-bottom:14px">
+      <section class="panel"><div class="ph"><h2>Issued and received per week, value</h2></div><div class="pb" id="ovchart"></div></section>
+      <section class="panel"><div class="ph"><h2>Needs attention</h2><button class="link" onclick="go('an-reorder')">Reorder advice</button></div>
+        <ul class="alist">
+          <li><b class="${a.order_now_count ? 'outq' : ''}">${a.order_now_count}</b><span>to order now<div class="x">${a.order_soon_count} more soon</div></span></li>
+          <li><b class="${a.materials_short ? 'outq' : ''}">${a.materials_short}</b><span>raw materials short for production</span></li>
+          <li><b class="${a.slow_count ? 'adj' : ''}">${a.slow_count}</b><span>slow-moving products<div class="x">${money(a.slow_value)} tied up</div></span></li>
+          <li><b class="${a.anomalies.length ? 'adj' : ''}">${a.anomalies.length}</b><span>unusual movements in this period</span></li>
+        </ul>
+        ${a.order_now.length ? `<table><thead><tr><th>Order now</th><th class="num">On hand</th><th class="num">Order</th></tr></thead><tbody>${a.order_now.map(i => `<tr class="click" onclick="openProduct(${i.id})"><td><span class="sku">${esc(i.sku)}</span></td><td class="num">${fmt(i.on_hand)}</td><td class="num">${fmt(i.order_qty)} <span class="unit">${esc(i.unit)}</span></td></tr>`).join('')}</tbody></table>` : ''}
+      </section>
+    </div>
+    <div class="cols">
+      <section class="panel"><div class="ph"><h2>Most issued products, by value</h2></div>
+        ${d.top_products.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Product</th><th class="num">Quantity</th><th class="num">Value</th><th style="width:22%"></th></tr></thead><tbody>
+        ${d.top_products.map(t => `<tr class="click" onclick="openProduct(${t.id})"><td><div class="sku">${esc(t.sku)}</div><div class="sub">${esc(t.name)}</div></td><td data-label="Quantity" class="num">${fmt(t.qty)}<span class="unit">${esc(t.unit)}</span></td><td data-label="Value" class="num">${money(t.value)}</td><td class="hp">${shareBar(t.value, maxTop)}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="empty"><b>Nothing issued in this period</b></div>'}</section>
+      <section class="panel"><div class="ph"><h2>Issued value by category</h2></div>
+        ${d.categories.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Category</th><th class="num">Value</th><th class="num">Share</th><th style="width:30%"></th></tr></thead><tbody>
+        ${d.categories.map(t => `<tr><td class="strong">${esc(t.category)}</td><td data-label="Value" class="num">${money(t.value)}</td><td data-label="Share" class="num">${fmt(t.share)}%</td><td class="hp">${shareBar(t.value, maxCat)}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="empty"><b>Nothing issued in this period</b></div>'}</section>
+    </div>
+    <details class="how"><summary>About these numbers</summary><ul>
+      <li>Values use today's unit costs. Reversed movements and their reversals are left out.</li>
+      <li>The arrows compare with the previous period of the same length (${d.period.days} days).</li>
+      <li>"Needs attention" looks at all stock in the chosen category, whatever the period.</li></ul></details>`;
+  barsChart($('#ovchart'), d.weekly.map(w => new Date(w.week).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })),
+    [{ label: 'Issued', color: 'var(--accent)', values: d.weekly.map(w => w.issued) }, { label: 'Received', color: '#8fb8bd', values: d.weekly.map(w => w.received) }], { money: true });
+  bindAf(f, 'vinex.af', viewAnOverview);
+  $('[data-csv]').onclick = () => downloadCSV('analytics-overview.csv', ['SKU', 'Name', 'Quantity issued', 'Unit', 'Value issued (EUR)'], d.top_products.map(t => [t.sku, t.name, t.qty, t.unit, t.value]));
+}
+
+async function viewAnProduct() {
+  const f = state.pf;
+  const pid = state.anProduct || state.products.find(p => p.active)?.id;
+  const picker = `<div class="picker"><input list="anplist" id="anp" placeholder="Type SKU or name" value="${esc(pid ? productLabel(state.products.find(p => p.id === pid) || { sku: '', name: '' }) : '')}">
+    <datalist id="anplist">${state.products.filter(p => p.active).map(p => `<option value="${esc(productLabel(p))}">`).join('')}</datalist></div>`;
+  if (!pid) { $('#view').innerHTML = phead('Product analysis', '') + '<div class="empty"><b>No products yet</b></div>'; return; }
+  const d = await api(`/analytics/product/${pid}?` + afQuery(f)), p = d.product, s = d.summary, adv = d.advice;
+  $('#view').innerHTML = phead('Product analysis', esc(`${p.sku}, ${p.name}`), csvBtn) + afBar(f, { category: false, extra: picker }) + `
+    <div class="strip" style="--n:4">
+      <div><div class="v">${fmt(s.issued)} <span class="unit">${esc(p.unit)}</span></div><div class="l">Issued in period, ${money(s.issued_value)}</div></div>
+      <div><div class="v">${fmt(s.avg_per_day)} <span class="unit">${esc(p.unit)}</span></div><div class="l">Per day on average, issued on ${s.issue_days} days</div></div>
+      <div><div class="v">${fmt(p.total)} <span class="unit">${esc(p.unit)}</span></div><div class="l">On hand${adv && adv.cover_days != null ? `, lasts about ${days(adv.cover_days)}` : ''}</div></div>
+      <div><div class="v">${adv ? `<span class="pill ${INS[adv.status][0]}" style="font-size:13px">${INS[adv.status][1]}</span>` : '—'}</div><div class="l">${adv && adv.reorder_point ? `Reorder at ${fmt(adv.reorder_point)}${adv.order_qty ? `, order ${fmt(adv.order_qty)}` : ''}` : 'No regular use yet'}${adv && (adv.abc || adv.xyz) ? `, class ${adv.abc || '–'}${adv.xyz || ''}` : ''}</div></div>
+    </div>
+    <div class="cols" style="margin-bottom:14px">
+      <section class="panel"><div class="ph"><h2>Stock level over time</h2></div><div class="pb" id="pchart1"></div></section>
+      <section class="panel"><div class="ph"><h2>Weekly use and forecast for the next 12 weeks</h2></div><div class="pb" id="pchart2"></div></section>
+    </div>
+    <div class="cols" style="margin-bottom:14px">
+      <section class="panel"><div class="ph"><h2>Use by weekday</h2></div><div class="pb" id="pchart3"></div></section>
+      <section class="panel"><div class="ph"><h2>Use by month, last 2 years</h2></div><div class="pb" id="pchart4"></div></section>
+    </div>
+    <div class="cols">
+      <section class="panel"><div class="ph"><h2>Issued for (reference)</h2></div>${d.references.length ? `<table><thead><tr><th>Reference</th><th class="num">Lines</th><th class="num">Quantity</th></tr></thead><tbody>${d.references.map(r => `<tr><td>${esc(r.reference)}</td><td class="num">${r.lines}</td><td class="num">${fmt(r.qty)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No issues in this period.</div>'}</section>
+      <section class="panel"><div class="ph"><h2>Stock by location and lot</h2></div>${d.lots.length ? `<table><thead><tr><th>Location</th><th>Lot / heat no.</th><th class="num">Quantity</th></tr></thead><tbody>${d.lots.map(r => `<tr><td>${esc(r.location)}</td><td>${esc(r.lot) || '<span class="muted">No lot</span>'}</td><td class="num">${fmt(r.qty)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No stock.</div>'}
+        ${d.people.length ? `<table style="border-top:1px solid var(--line)"><thead><tr><th>Booked by</th><th class="num">Lines</th><th class="num">Issued</th></tr></thead><tbody>${d.people.map(r => `<tr><td>${esc(r.operator)}</td><td class="num">${r.lines}</td><td class="num">${fmt(r.issued)}</td></tr>`).join('')}</tbody></table>` : ''}</section>
+    </div>
+    <details class="how"><summary>How the forecast works</summary><ul>
+      <li>Weekly issues are smoothed with Holt's method, which follows both the level and the trend of demand.</li>
+      <li>The likely range is where 8 out of 10 weeks are expected to fall, based on how far past forecasts missed. It widens further ahead.</li>
+      <li>The current, unfinished week is not used for the forecast.</li></ul></details>`;
+  $('#afrange').textContent = `${shortD(d.period.start)} to ${shortD(d.period.end)}`;
+  stockLineChart($('#pchart1'), d.daily, p.min_stock, p.unit);
+  forecastChart($('#pchart2'), d.weekly, d.forecast, p.unit);
+  barsChart($('#pchart3'), d.weekday.map(w => w.day), [{ label: `Issued (${p.unit})`, color: 'var(--accent)', values: d.weekday.map(w => w.qty) }], { height: 160, every: 1 });
+  barsChart($('#pchart4'), d.months.map(m => new Date(m.month + '-01').toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })), [{ label: `Issued (${p.unit})`, color: 'var(--accent)', values: d.months.map(m => m.qty) }], { height: 160 });
+  bindAf(f, 'vinex.pf', viewAnProduct);
+  $('#anp').onchange = e => { const q = findProduct(e.target.value); if (q) { state.anProduct = q.id; viewAnProduct(); } };
+  $('[data-csv]').onclick = () => downloadCSV(`product-${p.sku}.csv`, ['Date', 'Issued', 'Received', 'Stock at end of day'], d.daily.map(x => [x.date, x.issued, x.received, x.stock]));
+}
+
+async function viewAnActivity() {
+  const f = state.af, d = await api('/analytics/activity?' + afQuery(f)), t = d.totals;
+  const hours = []; for (let h = 5; h <= 21; h++) hours.push(h);
+  const max = Math.max(1, ...d.heatmap.flat());
+  const shade = v => v ? `background:rgba(45,94,101,${(0.15 + 0.85 * v / max).toFixed(2)});color:${v / max > .5 ? '#fff' : 'var(--ink)'}` : '';
+  const heat = `<div class="heat" style="--hours:${hours.length}"><div></div>${hours.map(h => `<div>${h}</div>`).join('')}
+    ${d.heatmap.map((row, i) => `<div class="hl">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</div>${hours.map(h => `<div class="c" style="${shade(row[h])}" title="${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]} ${h}:00, ${row[h]} lines">${row[h] || ''}</div>`).join('')}`).join('')}</div>`;
+  const off = d.heatmap.reduce((n, row) => n + row.slice(0, 5).concat(row.slice(22)).reduce((a, b) => a + b, 0), 0);
+  $('#view').innerHTML = phead('Warehouse activity', `${fmt(t.all)} movement lines`, csvBtn) + afBar(f) + `
+    <div class="strip" style="--n:4">
+      <div><div class="v">${fmt(t.all)}</div><div class="l">Lines: ${fmt(t.issued)} issued, ${fmt(t.received)} received, ${fmt(t.transfer)} transfers, ${fmt(t.stocktake)} counts</div></div>
+      <div><div class="v">${fmt(t.per_active_day)}</div><div class="l">Lines per working day (${t.active_days} days with activity)</div></div>
+      <div><div class="v">${t.busiest_slot ? `${t.busiest_slot.day} ${t.busiest_slot.hour}:00` : '—'}</div><div class="l">Busiest hour${t.busiest_slot ? `, ${t.busiest_slot.lines} lines in the period` : ''}</div></div>
+      <div><div class="v">${d.people.length}</div><div class="l">People booking movements</div></div>
+    </div>
+    <section class="panel" style="margin-bottom:14px"><div class="ph"><h2>When stock is moved, by weekday and hour</h2></div><div class="pb tablewrap">${heat}
+      ${off ? `<p class="muted small" style="margin:8px 0 0">${off} lines were booked outside 05:00 to 22:00 and are not shown.</p>` : ''}</div></section>
+    <section class="panel" style="margin-bottom:14px"><div class="ph"><h2>Lines per day</h2></div><div class="pb" id="acchart"></div></section>
+    <div class="cols">
+      <section class="panel"><div class="ph"><h2>By person</h2></div>${d.people.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Person</th><th class="num">Lines</th><th class="num">Issued</th><th class="num">Received</th><th class="num">Counts</th><th class="num">Reversals</th><th>Last</th></tr></thead><tbody>
+        ${d.people.map(r => `<tr><td class="strong">${esc(r.operator)}</td><td data-label="Lines" class="num">${fmt(r.lines)}</td><td data-label="Issued" class="num">${fmt(r.issued)}</td><td data-label="Received" class="num">${fmt(r.received)}</td><td data-label="Counts" class="num">${fmt(r.stocktakes)}</td><td data-label="Reversals" class="num ${r.reversals ? 'adj' : ''}">${fmt(r.reversals)}</td><td data-label="Last" class="small muted">${esc(when(r.last))}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="empty">No movements in this period.</div>'}</section>
+      <section class="panel"><div class="ph"><h2>By location</h2></div>${d.locations.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Location</th><th class="num">Lines</th><th class="num">Value in</th><th class="num">Value out</th></tr></thead><tbody>
+        ${d.locations.map(r => `<tr><td class="strong">${esc(r.location)}</td><td data-label="Lines" class="num">${fmt(r.lines)}</td><td data-label="Value in" class="num">${money(r.value_in)}</td><td data-label="Value out" class="num">${money(r.value_out)}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="empty">No movements in this period.</div>'}</section>
+    </div>`;
+  barsChart($('#acchart'), d.daily.map(x => new Date(x.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })),
+    [{ label: 'Issued', color: 'var(--accent)', values: d.daily.map(x => x.issued) }, { label: 'Received', color: '#8fb8bd', values: d.daily.map(x => x.received) },
+     { label: 'Transfers', color: '#b4bec8', values: d.daily.map(x => x.transfer) }, { label: 'Stocktake counts', color: '#d9a21b', values: d.daily.map(x => x.stocktake) }], { stacked: true, height: 170 });
+  bindAf(f, 'vinex.af', viewAnActivity);
+  $('[data-csv]').onclick = () => downloadCSV('warehouse-activity.csv', ['Date', 'Issued', 'Received', 'Transfers', 'Stocktake counts'], d.daily.map(x => [x.date, x.issued, x.received, x.transfer, x.stocktake]));
+}
+
+async function viewAnStocktake() {
+  const f = state.af, d = await api('/analytics/stocktake?' + afQuery(f)), s = d.summary;
+  const group = (title, rows) => `<section class="panel"><div class="ph"><h2>${title}</h2></div>${rows.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th></th><th class="num">Counts</th><th class="num">Accuracy</th><th class="num">Lost</th><th class="num">Found</th><th class="num">Net</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td class="strong">${esc(r.name)}</td><td data-label="Counts" class="num">${r.counts}</td><td data-label="Accuracy" class="num">${fmt(r.accuracy)}%</td><td data-label="Lost" class="num outq">${r.loss ? money(r.loss) : '—'}</td><td data-label="Found" class="num in">${r.gain ? money(r.gain) : '—'}</td><td data-label="Net" class="num strong">${money(r.net)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No counts.</div>'}</section>`;
+  $('#view').innerHTML = phead('Stocktake accuracy', `${s.counts} counts`, csvBtn + (canMove() ? ` <button class="btn primary" onclick="movementDialog('ADJUST')">${icon('clip')}New count</button>` : '')) + afBar(f) + (!s.counts
+    ? `<section class="panel"><div class="empty"><b>No stocktake counts in this period</b>Counts are booked with Stocktake count (Stock list, More). Every count is recorded, also when it matches, so accuracy can be measured.</div></section>` : `
+    <div class="strip" style="--n:4">
+      <div class="${s.accuracy < 90 ? 'warn' : ''}"><div class="v">${fmt(s.accuracy)}%</div><div class="l">Counts that matched the system (${s.exact} of ${s.counts})</div></div>
+      <div class="${s.loss ? 'bad' : ''}"><div class="v">${money(s.loss)}</div><div class="l">Value missing at counts</div></div>
+      <div><div class="v">${money(s.gain)}</div><div class="l">Value found at counts</div></div>
+      <div><div class="v">${money(s.net)}</div><div class="l">Net difference, ${s.products} products counted</div></div>
+    </div>
+    <div class="cols" style="margin-bottom:14px">${group('By location', d.by_location)}${group('By person who counted', d.by_person)}</div>
+    <section class="panel" style="margin-bottom:14px"><div class="ph"><h2>Products with the largest differences</h2></div><div class="tablewrap"><table class="cards"><thead><tr><th>Product</th><th class="num">Counts</th><th class="num">Accuracy</th><th class="num">Total difference</th><th class="num">Net value</th></tr></thead><tbody>
+      ${d.by_product.map(r => `<tr class="click" onclick="openProduct(${r.id})"><td><div class="sku">${esc(r.name)}</div><div class="sub">${esc(r.product)}</div></td><td data-label="Counts" class="num">${r.counts}</td><td data-label="Accuracy" class="num">${fmt(r.accuracy)}%</td><td data-label="Total difference" class="num">${fmt(r.abs_qty_diff)}<span class="unit">${esc(r.unit)}</span></td><td data-label="Net value" class="num strong ${r.net < 0 ? 'outq' : r.net > 0 ? 'in' : ''}">${money(r.net)}</td></tr>`).join('')}
+    </tbody></table></div></section>
+    <section class="panel"><div class="ph"><h2>Counts that did not match</h2></div>${d.differences.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>When</th><th>Product</th><th>Location</th><th>Lot</th><th class="num">System</th><th class="num">Counted</th><th class="num">Difference</th><th class="num">Value</th><th>By</th></tr></thead><tbody>
+      ${d.differences.map(r => `<tr><td data-label="When" class="small muted">${esc(when(r.date))}</td><td data-label="Product"><span class="sku">${esc(r.sku)}</span></td><td data-label="Location">${esc(r.location)}</td><td data-label="Lot">${esc(r.lot)}</td><td data-label="System" class="num">${fmt(r.system)}</td><td data-label="Counted" class="num">${fmt(r.counted)}</td><td data-label="Difference" class="num strong ${r.diff < 0 ? 'outq' : 'in'}">${signed(r.diff)}</td><td data-label="Value" class="num">${money(r.value)}</td><td data-label="By" class="small">${esc(r.operator)}</td></tr>`).join('')}
+    </tbody></table></div>` : '<div class="empty"><b>Every count matched</b></div>'}</section>`);
+  bindAf(f, 'vinex.af', viewAnStocktake);
+  $('[data-csv]').onclick = () => downloadCSV('stocktake-differences.csv', ['Date', 'SKU', 'Name', 'Location', 'Lot', 'System', 'Counted', 'Difference', 'Value (EUR)', 'By'], d.differences.map(r => [r.date, r.sku, r.name, r.location, r.lot, r.system, r.counted, r.diff, r.value, r.operator]));
+}
+
+const VIEWS = { dashboard: viewDashboard, stock: viewStock,
+  'an-overview': viewAnOverview, 'an-product': viewAnProduct, 'an-activity': viewAnActivity, 'an-stocktake': viewAnStocktake,
+  'an-reorder': () => { state.insView = 'reorder'; return viewInsights(); }, 'an-value': () => { state.insView = 'value'; return viewValue(); }, products: viewProducts, movements: viewMovements, locations: viewLocations, users: viewUsers };
 $('#brand').innerHTML = BRAND;
-const startTab = new URLSearchParams(location.search).get('tab');
+const startTab = { insights: 'an-overview' }[new URLSearchParams(location.search).get('tab')] || new URLSearchParams(location.search).get('tab');
 if (startTab && TABS.some(t => t[0] === startTab)) state.tab = startTab;
 if ('serviceWorker' in navigator && location.protocol === 'https:' || location.hostname === 'localhost') navigator.serviceWorker?.register('/sw.js').catch(() => {});
 (async function start() {

@@ -21,7 +21,7 @@
   :root {
     --paper:#e8ecee; --surface:#fff; --ink:#1c2326; --muted:#5b666b; --faint:#8a9499; --line:#cdd4d7; --line-2:#e4e8ea; --zebra:#f6f8f8; --hover:#e6f0f1;
     --chrome:#22292c; --chrome-2:#2d3538; --chrome-3:#3a4448; --chrome-ink:#c4cdd0; --chrome-muted:#87949a;
-    --tile:#3b5a5f; --tile-hover:#2c474c; --navy:#2d5e65; --navy-deep:#22292c; --accent:#2d5e65; --accent-hover:#244d53;
+    --navy:#2d5e65; --navy-deep:#22292c; --accent:#2d5e65; --accent-hover:#244d53;
     --zinc:#f2c230; --zinc-ink:#2a2100;
     --ok:#1d7a48; --ok-bg:#e0f1e7; --low:#9c5d00; --low-bg:#fbeed4; --out:#b42318; --out-bg:#fbe3df;
     --r-panel:4px; --r-ctl:3px;
@@ -75,14 +75,6 @@
   .statusbar .sp { flex:1; }
   .statusbar .ok::before { content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--ok); margin-right:6px; }
 
-  /* home launcher tiles, as in Prodata's start screen */
-  .tiles { display:flex; flex-wrap:wrap; gap:14px 10px; padding:14px 14px 16px; }
-  .tile { width:96px; background:none; border:0; padding:4px 2px; cursor:pointer; font:inherit; color:var(--ink); display:flex; flex-direction:column; align-items:center; gap:6px; border-radius:4px; text-decoration:none; }
-  .tile .sq { width:52px; height:52px; border-radius:6px; background:var(--tile); color:#fff; display:grid; place-items:center; font-weight:600; font-size:17px; letter-spacing:.5px; box-shadow:inset 0 -3px 0 rgba(0,0,0,.18); }
-  .tile.go .sq { background:var(--accent); }
-  .tile span.t { font-size:12px; line-height:1.25; text-align:center; color:var(--ink); }
-  .tile span.k { font-size:11px; color:var(--faint); margin-top:-4px; }
-  .tile:hover .sq { background:var(--tile-hover); } .tile:hover span.t { text-decoration:underline; }
 
   /* ---------- panels ---------- */
   .panel { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-panel); }
@@ -236,7 +228,6 @@
     .titlebar { margin:0 -12px; padding:0 12px; height:40px; } .titlebar .crumb { display:none; } .titlebar h1 { flex:1; font-size:15px; }
     .toolbar { margin:0 -12px 12px; padding:8px 12px; }
     .toolbar .acts { width:100%; } .toolbar .acts > .btn, .toolbar .acts > details { flex:1; } .toolbar .acts > details > summary { width:100%; }
-    .tiles { gap:12px 4px; padding:12px 6px 14px; justify-content:space-between; } .tile { width:76px; } .tile span.k { display:none; }
     .search, .search input, .filters select { width:100%; }
     input, select, textarea { font-size:16px; min-height:38px; }
     .btn { min-height:38px; padding:8px 12px; } .btn .k, kbd { display:none; }
@@ -499,19 +490,9 @@ function openDialog(html, onSubmit) {
 async function viewDashboard() {
   const d = await api('/dashboard');
   const attention = d.low_count + d.out_count;
-  const tile = (code, label, act, key = '', cls = '') => act.startsWith('/')
-    ? `<a class="tile ${cls}" href="${act}"><span class="sq">${code}</span><span class="t">${label}</span></a>`
-    : `<button class="tile ${cls}" onclick="${act}"><span class="sq">${code}</span><span class="t">${label}</span>${key ? `<span class="k">${key}</span>` : ''}</button>`;
-  const actions = canMove() ? [tile('RC', 'Receive stock', "movementDialog('IN')", 'F2', 'go'), tile('IS', 'Issue stock', "movementDialog('OUT')", 'F3', 'go'),
-    tile('TR', 'Transfer', "movementDialog('TRANSFER')", 'F4', 'go'), tile('ST', 'Stocktake count', "movementDialog('ADJUST')", '', 'go'),
-    tile('SC', 'Scan product', 'scanFind()', '', 'go')].join('') : '';
-  const lists = [tile('SL', 'Stock list', "go('stock')"), tile('MV', 'Movements', "go('movements')"), tile('PR', 'Products', "go('products')"),
-    tile('LC', 'Locations', "go('locations')"), tile('RA', 'Reorder advice', "openInsights('reorder')"), tile('VT', 'Value and turnover', "openInsights('value')"),
-    tile('RL', 'Reorder list (CSV)', '/api/export/reorder.csv'), tile('EX', 'Stock export (CSV)', '/api/export/stock.csv'),
-    isAdmin() ? tile('US', 'Users', "go('users')") : ''].join('');
-  $('#view').innerHTML = phead('Home', '') + `
-    ${actions ? `<section class="panel" style="margin-bottom:14px"><div class="ph"><h2>Stock operations</h2></div><div class="tiles">${actions}</div></section>` : ''}
-    <section class="panel" style="margin-bottom:14px"><div class="ph"><h2>Lists and reports</h2></div><div class="tiles">${lists}</div></section>
+  $('#view').innerHTML = phead('Home', '', canMove() ? `<button class="btn primary" onclick="movementDialog('IN')">${icon('plus')}Receive <span class="k">F2</span></button>
+      <button class="btn" onclick="movementDialog('OUT')">${icon('minus')}Issue <span class="k">F3</span></button>
+      <button class="btn" onclick="movementDialog('TRANSFER')">${icon('moves')}Transfer <span class="k">F4</span></button>` : '') + `
     <div class="strip" style="--n:4">
       <div><div class="v">${fmt(d.products)}</div><div class="l">Active products</div></div>
       <div class="${d.out_count ? 'bad' : attention ? 'warn' : ''}"><div class="v">${attention}</div><div class="l">At or below minimum${d.out_count ? `, ${d.out_count} out of stock` : ''}</div></div>
@@ -608,11 +589,6 @@ async function viewStock() {
   };
   $('#sf').oninput = e => { state.stockFilter = e.target.value; $('#stocktable').innerHTML = stockTable(); };
   $('#lowonly').onchange = e => { state.lowOnly = e.target.checked; $('#stocktable').innerHTML = stockTable(); };
-}
-function openInsights(view) { state.insView = view; store.set('vinex.insView', view); go('insights'); }
-async function scanFind() {
-  const code = await scanCode(); if (!code) return;
-  try { const p = await api('/lookup?code=' + encodeURIComponent(code)); lotsDialog(p.id); } catch (e) { toast(e.message); }
 }
 async function lotsDialog(pid) {
   const p = state.products.find(x => x.id === pid), s = state.stock.find(x => x.id === pid);

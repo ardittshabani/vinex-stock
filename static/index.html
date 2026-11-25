@@ -73,6 +73,9 @@
   .acts { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
   .statusbar { position:fixed; left:216px; right:0; bottom:0; height:26px; display:flex; align-items:center; gap:18px; padding:0 14px; background:#f3f5f6; border-top:1px solid var(--line); color:var(--muted); font-size:12px; z-index:15; }
   .statusbar .sp { flex:1; }
+  .credit { font-size:11px; color:var(--faint); }
+  .statusbar .credit { padding-left:14px; border-left:1px solid var(--line); }
+  #login { flex-direction:column; } .login-credit { color:var(--chrome-muted); margin:14px 0 0; }
   .statusbar .ok::before { content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--ok); margin-right:6px; }
 
 
@@ -317,6 +320,7 @@ const ICONS = {
   chevron: '<path d="m9 6 6 6-6 6"/>',
 };
 const icon = (n, cls = 'i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+const CREDIT = 'Developed by Ardit Shabani';
 const BRAND = `${icon('hex')}<span>Vinex Stock<small>Vinex Fasteners</small></span>`;
 
 async function api(path, opts = {}) {
@@ -370,7 +374,7 @@ function showLogin(msg) {
     <div class="err" ${msg ? '' : 'hidden'}>${esc(msg || '')}</div>
     <div class="field"><label for="lu">Username</label><input id="lu" name="username" autocomplete="username" autocapitalize="none" required autofocus></div>
     <div class="field"><label for="lp">Password</label><input id="lp" name="password" type="password" autocomplete="current-password" required></div>
-    <button class="btn dark">Sign in</button></div></form>`;
+    <button class="btn dark">Sign in</button></div></form><p class="credit login-credit">${CREDIT}</p>`;
   const form = $('form', el);
   form.onsubmit = async e => {
     e.preventDefault();
@@ -399,6 +403,7 @@ function moreSheet() {
   dlg.innerHTML = `<div class="sheet"><h2>More</h2><div class="menu-list">
     ${extra.map(([k, l, ic]) => `<button data-tab="${k}">${icon(ic)}${l}</button>`).join('')}
     <button class="m-pw">${icon('key')}Change password</button><button class="m-out">${icon('out')}Sign out</button></div>
+    <p class="credit" style="text-align:center;margin:14px 0 0">${CREDIT}</p>
     <div class="actions"><button class="btn" data-close>Close</button></div></div>`;
   $$('[data-tab]', dlg).forEach(b => b.onclick = () => { dlg.close(); go(b.dataset.tab); });
   $('.m-pw', dlg).onclick = () => { dlg.close(); passwordDialog(); };
@@ -428,7 +433,7 @@ function renderStatus() {
   el.innerHTML = `<span class="ok">Connected</span><span>${esc(u.username)}, ${ROLE_LABEL[u.role]}</span><span>${fmt(state.products.filter(p => p.active).length)} products</span>
     ${low ? `<span>${low} at or below minimum</span>` : ''}<span class="sp"></span>
     ${canMove() ? '<span><kbd>F2</kbd> Receive <kbd>F3</kbd> Issue <kbd>F4</kbd> Transfer</span>' : ''}<span><kbd>/</kbd> Find</span>
-    <span>Updated ${state.baseAt ? new Date(state.baseAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}</span>`;
+    <span>Updated ${state.baseAt ? new Date(state.baseAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}</span><span class="credit">${CREDIT}</span>`;
 }
 /* keyboard shortcuts, as in desktop ERP software */
 document.addEventListener('keydown', e => {

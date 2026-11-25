@@ -1,6 +1,6 @@
 // Vinex Stock service worker: makes the app installable and opens the shell quickly.
 // Data (/api) is never cached, so stock numbers are always live.
-const CACHE = 'vinex-shell-v3';
+const CACHE = 'vinex-shell-v4';
 const SHELL = ['/', '/static/manifest.webmanifest', '/static/icons/icon-192.png',
   '/static/vendor/fonts/ibm-plex-sans-latin-400-normal.woff2', '/static/vendor/fonts/ibm-plex-sans-latin-500-normal.woff2',
   '/static/vendor/fonts/ibm-plex-sans-latin-600-normal.woff2'];

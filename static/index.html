@@ -557,12 +557,12 @@ function drawActivity(el, a) {
     const showLabel = a.length <= 14 && (i % (W < 400 ? 2 : 1) === 0 || i === a.length - 1);
     return `<g><title>${esc(x.date)}: ${x.in} received, ${x.out} issued</title>
       <rect x="${x0 + 2}" y="${H - 20 - hi}" width="${bwid}" height="${hi}" rx="2" fill="var(--ok)"/>
-      <rect x="${x0 + bw / 2 + 1}" y="${H - 20 - ho}" width="${bwid}" height="${ho}" rx="2" fill="var(--navy)"/>
+      <rect x="${x0 + bw / 2 + 1}" y="${H - 20 - ho}" width="${bwid}" height="${ho}" rx="2" fill="#c0392b"/>
       ${showLabel ? `<text x="${x0 + bw / 2}" y="${H - 5}" text-anchor="middle" font-size="11" fill="var(--faint)">${+x.date.slice(8)}</text>` : ''}</g>`;
   }).join('');
   el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Movements per day, last 14 days">
       <line x1="0" x2="${W}" y1="${H - 20}" y2="${H - 20}" stroke="var(--line)"/>${bars}</svg>
-    <div class="legend"><span><i style="background:var(--ok)"></i>Received</span><span><i style="background:var(--navy)"></i>Issued</span><span>Busiest day: ${max} movements</span></div>`;
+    <div class="legend"><span><i style="background:var(--ok)"></i>Received</span><span><i style="background:#c0392b"></i>Issued</span><span>Busiest day: ${max} movements</span></div>`;
 }
 
 /* ---------- stock ---------- */
@@ -1206,7 +1206,7 @@ async function viewAnOverview() {
       <li>The arrows compare with the previous period of the same length (${d.period.days} days).</li>
       <li>"Needs attention" looks at all stock in the chosen category, whatever the period.</li></ul></details>`;
   barsChart($('#ovchart'), d.weekly.map(w => new Date(w.week).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })),
-    [{ label: 'Issued', color: 'var(--accent)', values: d.weekly.map(w => w.issued) }, { label: 'Received', color: '#8fb8bd', values: d.weekly.map(w => w.received) }], { money: true });
+    [{ label: 'Issued', color: '#c0392b', values: d.weekly.map(w => w.issued) }, { label: 'Received', color: '#1d7a48', values: d.weekly.map(w => w.received) }], { money: true });
   bindAf(f, 'vinex.af', viewAnOverview);
   $('[data-csv]').onclick = () => downloadCSV('analytics-overview.csv', ['SKU', 'Name', 'Quantity issued', 'Unit', 'Value issued (EUR)'], d.top_products.map(t => [t.sku, t.name, t.qty, t.unit, t.value]));
 }

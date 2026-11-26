@@ -353,7 +353,7 @@ async function api(path, opts = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && path !== '/login') showLogin();
-  if (!res.ok) throw new Error(data.error || res.statusText);
+  if (!res.ok) { const err = new Error(data.error || res.statusText); err.data = data; throw err; }
   if (opts.method && opts.method !== 'GET') state.dirty = true;
   return data;
 }
@@ -896,19 +896,38 @@ function productDialog(id) {
       <div class="field"><label id="perlbl">Material per 1,000 ${esc(p.unit || 'pcs')}</label><input name="material_per_1000" type="number" step="any" min="0" placeholder="e.g. 22.5" value="${p.material_per_1000 ?? ''}"></div></div>
     <div class="field"><label>Prodata item code (optional)</label><input name="prodata_code" value="${esc(p.prodata_code)}"></div>
     ${id ? `<div class="field row"><input type="checkbox" name="active" id="act" ${p.active ? 'checked' : ''}><label for="act">Active</label></div>` : ''}
-    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save product</button></div></form>`,
+    <div class="actions">${id ? `<button type="button" class="btn" data-delete style="margin-right:auto;color:#b42318;border-color:#b42318">Delete</button>` : ''}<button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save product</button></div></form>`,
     async (v, f) => {
       const body = { ...v }; if (id) body.active = f.active.checked;
       await api(id ? '/products/' + id : '/products', { method: id ? 'PUT' : 'POST', body });
       toast('Product saved');
     });
   pform.querySelector('[data-scan]').onclick = async () => { const c = await scanCode(); if (c) pform.barcode.value = c; };
+  const del = pform.querySelector('[data-delete]');
+  if (del) del.onclick = () => deleteProduct(p, pform);
   const perLabel = () => {
     const m = state.products.find(x => x.sku.toLowerCase() === pform.material_sku.value.trim().toLowerCase());
     $('#perlbl').textContent = `${m ? esc(m.unit) : 'Material'} per 1,000 ${pform.unit.value || 'pcs'}`;
   };
   ['input', 'change'].forEach(ev => { pform.material_sku.addEventListener(ev, perLabel); pform.unit.addEventListener(ev, perLabel); });
   perLabel();
+}
+async function deleteProduct(p, form) {
+  const err = form.querySelector('.err');
+  const fail = ex => { err.textContent = ex.message; err.hidden = false; };
+  if (!confirm(`Delete ${p.sku} (${p.name}) permanently? This cannot be undone.`)) return;
+  try {
+    try { await api('/products/' + p.id, { method: 'DELETE', body: {} }); }
+    catch (ex) {
+      const n = ex.data?.movements;
+      if (!n) throw ex;
+      if (!confirm(`${p.sku} has ${n} stock movement${n === 1 ? '' : 's'}.\n\nDeleting it also permanently deletes those movements, so stock totals, history and analytics change.\n\nDelete the product and its history?`)) return;
+      await api('/products/' + p.id, { method: 'DELETE', body: { with_history: true } });
+    }
+    $('#dlg').close();
+    toast(`${p.sku} deleted`);
+    await show();
+  } catch (ex) { fail(ex); }
 }
 function importDialog(kind) {
   const isProducts = kind === 'products';

@@ -899,7 +899,7 @@ function productDialog(id) {
       <div class="field"><label id="perlbl">Material per 1,000 ${esc(p.unit || 'pcs')}</label><input name="material_per_1000" type="number" step="any" min="0" placeholder="e.g. 22.5" value="${p.material_per_1000 ?? ''}"></div></div>
     <div class="field"><label>Prodata item code (optional)</label><input name="prodata_code" value="${esc(p.prodata_code)}"></div>
     ${id ? `<div class="field row"><input type="checkbox" name="active" id="act" ${p.active ? 'checked' : ''}><label for="act">Active</label></div>` : ''}
-    <div class="actions">${id ? `<button type="button" class="btn" data-delete style="margin-right:auto;color:#b42318;border-color:#b42318">Delete</button>` : ''}<button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save product</button></div></form>`,
+    <div class="actions">${id ? `<button type="button" class="btn" data-delete style="margin-right:auto;color:var(--out);border-color:var(--out)">Delete</button>` : ''}<button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save product</button></div></form>`,
     async (v, f) => {
       const body = { ...v }; if (id) body.active = f.active.checked;
       await api(id ? '/products/' + id : '/products', { method: id ? 'PUT' : 'POST', body });

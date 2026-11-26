@@ -1051,6 +1051,10 @@ def run_seed():
         print(f"[seed] VINEX_SEED could not be read: {e}", flush=True)
         return
     views = {"products": import_products, "opening-stock": import_opening_stock}
+    db = connect()                                   # booked under a real account: the one named, else the first admin
+    row = db.execute("SELECT username FROM users WHERE role='admin' ORDER BY id LIMIT 1").fetchone()
+    db.close()
+    operator = seed.get("user") or (row["username"] if row else "admin")
     with open(DB_PATH + ".seed.lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)             # only one process loads the seed
         for i, (kind, body) in enumerate(seed["steps"], start=1):
@@ -1061,7 +1065,7 @@ def run_seed():
             if done:
                 continue
             with app.test_request_context(method="POST", json={"csv": body}):
-                g.user = {"username": "import-" + seed["key"]}
+                g.user = {"username": operator}
                 try:
                     resp = views[kind]()
                 except ApiError as e:

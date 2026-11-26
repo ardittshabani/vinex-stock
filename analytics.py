@@ -10,7 +10,9 @@ from datetime import date, timedelta
 
 import insights
 
-CLEAN = "m.reversal_of IS NULL AND NOT EXISTS (SELECT 1 FROM movements r WHERE r.reversal_of = m.id)"
+# flows leave out reversed movements, their reversals and opening-stock bookings (stock that was already there)
+CLEAN = ("m.reversal_of IS NULL AND NOT EXISTS (SELECT 1 FROM movements r WHERE r.reversal_of = m.id) "
+         "AND COALESCE(m.reference, '') != 'OPENING'")
 WEEKDAYS = ["Hën", "Mar", "Mër", "Enj", "Pre", "Sht", "Die"]
 
 
@@ -237,7 +239,7 @@ def product(db, pid, f, stock_row):
 # ------------------------------------------------------------------ warehouse activity
 def activity(db, f):
     w, a = _where(f)
-    base = f"FROM movements m JOIN products p ON p.id = m.product_id WHERE {w} AND m.kind != 'TRANSFER_IN'"
+    base = f"FROM movements m JOIN products p ON p.id = m.product_id WHERE {w} AND m.kind != 'TRANSFER_IN' AND COALESCE(m.reference, '') != 'OPENING'"
     heat = [[0] * 24 for _ in range(7)]
     for r in db.execute(f"SELECT strftime('%w', m.created_at) AS wd, CAST(strftime('%H', m.created_at) AS INTEGER) AS h, COUNT(*) AS c {base} GROUP BY wd, h", a):
         heat[(int(r["wd"]) + 6) % 7][r["h"]] = r["c"]
@@ -261,7 +263,7 @@ def activity(db, f):
                    SUM(CASE WHEN m.qty > 0 THEN m.qty * COALESCE(p.unit_cost, 0) ELSE 0 END) AS value_in,
                    SUM(CASE WHEN m.qty < 0 THEN -m.qty * COALESCE(p.unit_cost, 0) ELSE 0 END) AS value_out
             FROM movements m JOIN products p ON p.id = m.product_id JOIN locations l ON l.id = m.location_id
-            WHERE {w} GROUP BY l.id ORDER BY lines DESC""", a).fetchall()
+            WHERE {w} AND COALESCE(m.reference, '') != 'OPENING' GROUP BY l.id ORDER BY lines DESC""", a).fetchall()
     totals = {g: sum(x[g] for x in daily) for g in ("received", "issued", "transfer", "stocktake")}
     busiest_slot = max(((heat[i][h], i, h) for i in range(7) for h in range(24)), default=(0, 0, 0))
     work_days = [x for x in daily if sum(x[g] for g in totals)]

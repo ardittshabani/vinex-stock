@@ -227,13 +227,13 @@ def handle_api_error(e):
     return jsonify(error=e.message, **e.extra), e.status
 
 
-def num(value, field, minimum=None, required=True):
+def num(value, field, minimum=None, required=True, places=3):
     if value is None or value == "":
         if required:
             raise ApiError(f"{field}: fusha është e detyrueshme")
         return None
     try:
-        v = round(float(value), 3)
+        v = round(float(str(value).replace(",", ".")) if isinstance(value, str) and value.count(",") == 1 and "." not in value else float(value), places)
     except (TypeError, ValueError):
         raise ApiError(f"{field} duhet të jetë numër")
     if minimum is not None and v < minimum:
@@ -352,11 +352,12 @@ def list_products():
 
 
 UNITS = {"kg": "kg", "kgs": "kg", "kilogram": "kg", "kilograms": "kg", "kilogramë": "kg",
-         "pcs": "pcs", "pc": "pcs", "piece": "pcs", "pieces": "pcs", "unit": "pcs", "units": "pcs", "copë": "pcs", "cope": "pcs"}
+         "pcs": "pcs", "pc": "pcs", "piece": "pcs", "pieces": "pcs", "unit": "pcs", "units": "pcs", "copë": "pcs", "cope": "pcs",
+         "m": "m", "metra": "m", "meter": "m", "metre": "m", "metres": "m", "meters": "m", "metër": "m", "metro": "m"}
 
 
 def unit_of(payload, current=None):
-    """Two units: kg (main, decimals allowed) and pcs (counted in whole numbers 1, 2, 3).
+    """Units: kg (main, decimals allowed), pcs (counted in whole numbers 1, 2, 3) and m (metres, decimals allowed).
     An existing product that already uses another unit keeps it."""
     raw = text(payload, "unit").lower()
     if not raw:
@@ -365,7 +366,7 @@ def unit_of(payload, current=None):
         return UNITS[raw]
     if current and raw == current.lower():
         return current
-    raise ApiError("Njësia duhet të jetë kg ose copë")
+    raise ApiError("Njësia duhet të jetë kg, copë ose m")
 
 
 def check_whole(db, pid, qty, label="Sasia"):
@@ -383,7 +384,8 @@ def product_fields(payload, current_unit=None):
         "spec": text(payload, "spec"),
         "unit": unit_of(payload, current_unit),
         "min_stock": num(payload.get("min_stock", 0) or 0, "Stoku minimal", 0),
-        "unit_cost": num(payload.get("unit_cost"), "Kostoja për njësi", 0, required=False),
+        # cost prices keep 6 decimals, so stock value matches Prodata to the cent (e.g. 1,458333 €/kg)
+        "unit_cost": num(payload.get("unit_cost"), "Kostoja për njësi", 0, required=False, places=6),
         "prodata_code": text(payload, "prodata_code") or None,
         "barcode": text(payload, "barcode") or None,
         # weight of 1,000 pieces in kg: lets every table show both units (copë and kg)
@@ -965,7 +967,8 @@ def import_products():
 
 @app.post("/api/import/opening-stock")
 def import_opening_stock():
-    """Columns: sku, location, qty, lot (optional). Books each row as an IN movement with reference OPENING."""
+    """Columns: sku, location, qty, lot (optional), date (optional, YYYY-MM-DD, e.g. 2025-12-31 for a year-end stock list).
+    Books each row as an IN movement with reference OPENING."""
     db = get_db()
     d = request.get_json(force=True)
     operator = g.user["username"]
@@ -988,7 +991,16 @@ def import_opening_stock():
                 check_whole(db, p["id"], qty, "qty")
                 loc = db.execute("SELECT id FROM locations WHERE name=?", (loc_name,)).fetchone()
                 loc_id = loc["id"] if loc else db.execute("INSERT INTO locations(name) VALUES (?)", (loc_name,)).lastrowid
-                insert_movement(db, p["id"], loc_id, "IN", qty, (row.get("lot") or "").strip(), "OPENING", "Opening stock import", operator)
+                mid = insert_movement(db, p["id"], loc_id, "IN", qty, (row.get("lot") or "").strip(), "OPENING", "Stoku fillestar", operator)
+                when = (row.get("date") or "").strip()
+                if when:
+                    try:
+                        day = date.fromisoformat(when)
+                    except ValueError:
+                        raise ApiError(f"data '{when}' duhet të jetë si 2025-12-31")
+                    if day > date.today():
+                        raise ApiError(f"data '{when}' është në të ardhmen")
+                    db.execute("UPDATE movements SET created_at=? WHERE id=?", (f"{day.isoformat()} 23:59:00", mid))
                 count += 1
             except ApiError as e:
                 errors.append(f"Rreshti {i}: {e.message}")
@@ -997,7 +1009,7 @@ def import_opening_stock():
         db.execute("ROLLBACK")
         raise
     if errors:
-        return jsonify(error="Nothing was imported. " + " | ".join(errors[:5])), 400
+        return jsonify(error="Asgjë nuk u importua. " + " | ".join(errors[:5])), 400
     return jsonify(imported=count)
 
 

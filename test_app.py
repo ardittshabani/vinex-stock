@@ -671,3 +671,28 @@ class UnitTests(unittest.TestCase):
         r = self.c.post("/api/movements", json={"kind": "ADJUST", "product_id": pcs, "location_id": self.loc, "counted": 1.5})
         self.assertEqual(r.status_code, 400)
         self.assertEqual(self.c.post("/api/products", json={"sku": "X", "name": "X", "unit": "box"}).status_code, 400)
+
+
+class OpeningStockTests(unittest.TestCase):
+    def setUp(self):
+        db = stock.connect()
+        for t in ("counts", "movements", "products", "locations"):
+            db.execute(f"DELETE FROM {t}")
+        db.commit(); db.close()
+        self.c = client_as("admin", ADMIN_PW)
+
+    def test_dated_opening_stock_and_metres(self):
+        csv = "sku,name,unit,unit_cost\nP1,Pahi elastike,M,10.45\nB1,Bulon,KG,1.4583\n"
+        self.assertEqual(self.c.post("/api/import/products", json={"csv": csv}).status_code, 200)
+        units = {p["sku"]: p["unit"] for p in self.c.get("/api/products").get_json()}
+        self.assertEqual(units, {"P1": "m", "B1": "kg"})
+        r = self.c.post("/api/import/opening-stock", json={"csv": "sku,location,qty,date\nP1,Magazina kryesore,1998.5,2025-12-31\nB1,Magazina kryesore,320,2025-12-31\n"})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        dates = {r["created_at"] for r in self.c.get("/api/movements").get_json()}
+        self.assertEqual(dates, {"2025-12-31 23:59:00"})
+        # opening stock is stock that was already there: not a receipt in analytics
+        o = self.c.get("/api/analytics/overview?from=2025-12-01&to=2025-12-31").get_json()
+        self.assertEqual(o["kpi"]["received_value"], 0)
+        self.assertAlmostEqual(o["stock"]["value"], 1998.5 * 10.45 + 320 * 1.4583, places=2)
+        bad = self.c.post("/api/import/opening-stock", json={"csv": "sku,location,qty,date\nB1,Magazina kryesore,1,2099-01-01\n"})
+        self.assertEqual(bad.status_code, 400)

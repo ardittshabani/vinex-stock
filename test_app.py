@@ -604,3 +604,26 @@ class AnalyticsTests(unittest.TestCase):
         self.assertEqual(self.c.post(f"/api/movements/{mid}/reverse", json={}).status_code, 201)
         d = self.c.get("/api/analytics/stocktake").get_json()
         self.assertEqual((d["summary"]["counts"], d["summary"]["accuracy"]), (1, 100))   # the wrong count is dropped
+
+
+class UnitTests(unittest.TestCase):
+    def setUp(self):
+        db = stock.connect()
+        for t in ("counts", "movements", "products", "locations"):
+            db.execute(f"DELETE FROM {t}")
+        self.loc = db.execute("INSERT INTO locations(name) VALUES ('Main')").lastrowid
+        db.commit(); db.close()
+        self.c = client_as("admin", ADMIN_PW)
+
+    def test_kg_is_default_and_pieces_are_whole(self):
+        kg = self.c.post("/api/products", json={"sku": "W", "name": "Wire"}).get_json()["id"]
+        pcs = self.c.post("/api/products", json={"sku": "B", "name": "Bolt", "unit": "unit"}).get_json()["id"]
+        units = {p["sku"]: p["unit"] for p in self.c.get("/api/products").get_json()}
+        self.assertEqual(units, {"W": "kg", "B": "pcs"})
+        mv = lambda pid, q: self.c.post("/api/movements", json={"kind": "IN", "product_id": pid, "location_id": self.loc, "qty": q})
+        self.assertEqual(mv(kg, 12.5).status_code, 201)
+        self.assertEqual(mv(pcs, 2.5).status_code, 400)
+        self.assertEqual(mv(pcs, 3).status_code, 201)
+        r = self.c.post("/api/movements", json={"kind": "ADJUST", "product_id": pcs, "location_id": self.loc, "counted": 1.5})
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self.c.post("/api/products", json={"sku": "X", "name": "X", "unit": "box"}).status_code, 400)

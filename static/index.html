@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <title>Vinex Stock</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#22292c">
+<meta name="theme-color" content="#15161d">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=3">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=4">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Vinex Stock">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Crect width=%2724%27 height=%2724%27 rx=%275%27 fill=%27%231c1c1e%27/%3E%3Cpath d=%27M12 3.2 19.6 7.6v8.8L12 20.8l-7.6-4.4V7.6z%27 fill=%27%23dc3a34%27/%3E%3Ccircle cx=%2712%27 cy=%2712%27 r=%273.3%27 fill=%27%231c1c1e%27/%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="/static/icons/icon-192.png?v=4">
 <style>
   @font-face { font-family:"Plex"; font-weight:400; font-display:swap; src:url(/static/vendor/fonts/ibm-plex-sans-latin-400-normal.woff2) format("woff2"); unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
   @font-face { font-family:"Plex"; font-weight:500; font-display:swap; src:url(/static/vendor/fonts/ibm-plex-sans-latin-500-normal.woff2) format("woff2"); unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
@@ -37,7 +37,7 @@
   /* ---------- shell: top bar, menu, content, status bar ---------- */
   .topbar { position:sticky; top:0; z-index:25; height:44px; display:flex; align-items:center; gap:14px; padding:0 12px 0 14px; background:var(--chrome); color:#fff; }
   .brand { display:flex; align-items:center; gap:9px; font-weight:600; font-size:14px; white-space:nowrap; }
-  .brand svg { width:22px; height:22px; color:#e0413b; }
+  .brand .mark { width:26px; height:26px; border-radius:6px; display:block; }
   .brand small { font-weight:400; color:var(--chrome-muted); margin-left:4px; font-size:12px; }
   .gsearch { position:relative; margin-left:auto; width:320px; }
   .gsearch svg { position:absolute; left:9px; top:50%; transform:translateY(-50%); color:var(--chrome-muted); }
@@ -343,7 +343,7 @@ const ICONS = {
 };
 const icon = (n, cls = 'i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
 const CREDIT = 'Developed by Ardit Shabani';
-const BRAND = `${icon('hex')}<span>Vinex Stock<small>Vinex Fasteners</small></span>`;
+const BRAND = `<img class="mark" src="/static/icons/icon-192.png?v=4" alt="" width="26" height="26"><span>Vinex Stock<small>Vinex Fasteners</small></span>`;
 
 async function api(path, opts = {}) {
   const res = await fetch('/api' + path, {
@@ -677,7 +677,13 @@ function movementDialog(kind, presetPid) {
     const p = findProduct(form.product.value);
     $('#lots').innerHTML = p ? (await api('/stock/detail?product_id=' + p.id)).filter(r => r.lot).map(r => `<option value="${esc(r.lot)}">${esc(r.location)}: ${fmt(r.qty)}</option>`).join('') : '';
   };
-  ['input', 'change'].forEach(ev => form.addEventListener(ev, e => { if (e.target.name === 'product') fillLots(); hint(); }));
+  const setStep = () => {
+    const p = findProduct(form.product.value), q = form.qty || form.counted;
+    q.step = p && p.unit === 'pcs' ? '1' : 'any';
+    q.placeholder = p ? (p.unit === 'pcs' ? 'Whole pieces, e.g. 250' : `In ${p.unit}, e.g. 12.5`) : '';
+  };
+  ['input', 'change'].forEach(ev => form.addEventListener(ev, e => { if (e.target.name === 'product') { fillLots(); setStep(); } hint(); }));
+  setStep();
   fillLots(); hint();
   form.querySelector('[data-scan]').onclick = () => scanProduct(form);
 }
@@ -874,11 +880,11 @@ async function viewProducts() {
       : `<div class="empty"><b>No products yet</b>${isAdmin() ? 'Add one, or import your list from a CSV file.' : 'An administrator can add products.'}</div>`}</section>`;
 }
 function productDialog(id) {
-  const p = state.products.find(x => x.id === id) || { unit: 'pcs', min_stock: 0, active: 1 };
+  const p = state.products.find(x => x.id === id) || { unit: 'kg', min_stock: 0, active: 1 };
   const mat = state.products.find(x => x.id === p.material_id);
   const { form: pform } = openDialog(`<form><h2>${id ? 'Edit product' : 'New product'}</h2>
     <div class="two"><div class="field"><label>SKU</label><input name="sku" required value="${esc(p.sku)}"></div>
-      <div class="field"><label>Unit</label><input name="unit" list="units" value="${esc(p.unit)}"><datalist id="units"><option>pcs</option><option>kg</option><option>box</option><option>m</option><option>set</option></datalist></div></div>
+      <div class="field"><label>Unit</label><select name="unit"><option value="kg" ${p.unit === 'kg' ? 'selected' : ''}>kg (weight, decimals allowed)</option><option value="pcs" ${p.unit === 'pcs' ? 'selected' : ''}>pcs (pieces, counted 1, 2, 3)</option>${!['kg', 'pcs'].includes(p.unit) ? `<option value="${esc(p.unit)}" selected>${esc(p.unit)}</option>` : ''}</select></div></div>
     <div class="field"><label>Name</label><input name="name" required value="${esc(p.name)}"></div>
     <div class="two"><div class="field"><label>Category</label><input name="category" list="cats" value="${esc(p.category)}"><datalist id="cats">${[...new Set(state.products.map(x => x.category).filter(Boolean))].map(c => `<option>${esc(c)}</option>`).join('')}</datalist></div>
       <div class="field"><label>Spec (standard, class, finish)</label><input name="spec" value="${esc(p.spec)}"></div></div>
@@ -908,7 +914,7 @@ function importDialog(kind) {
   const isProducts = kind === 'products';
   openDialog(`<form><h2>${isProducts ? 'Import products' : 'Import opening stock'}</h2>
     <p class="muted">${isProducts
-      ? 'A CSV file with a header row. Required columns: <code>sku</code>, <code>name</code>. Optional: <code>category</code>, <code>spec</code>, <code>unit</code>, <code>min_stock</code>, <code>unit_cost</code>, <code>barcode</code>, <code>prodata_code</code>, <code>material_sku</code> and <code>material_per_1000</code> (the raw material it is made from, and how much per 1,000). Products with an existing SKU are updated.'
+      ? 'A CSV file with a header row. Required columns: <code>sku</code>, <code>name</code>. Optional: <code>category</code>, <code>spec</code>, <code>unit</code> (<code>kg</code>, the default, or <code>pcs</code>), <code>min_stock</code>, <code>unit_cost</code>, <code>barcode</code>, <code>prodata_code</code>, <code>material_sku</code> and <code>material_per_1000</code> (the raw material it is made from, and how much per 1,000). Products with an existing SKU are updated.'
       : 'A CSV file with a header row and the columns <code>sku</code>, <code>location</code>, <code>qty</code>, and optionally <code>lot</code>. New locations are created. Use this once, when going live.'}</p>
     <div class="field"><label>CSV file</label><input type="file" name="file" accept=".csv,text/csv" required></div>
     <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Import</button></div></form>`,

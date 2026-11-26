@@ -348,13 +348,37 @@ def list_products():
     return jsonify([dict(r) for r in db.execute(q)])
 
 
-def product_fields(payload):
+UNITS = {"kg": "kg", "kgs": "kg", "kilogram": "kg", "kilograms": "kg", "kilogramë": "kg",
+         "pcs": "pcs", "pc": "pcs", "piece": "pcs", "pieces": "pcs", "unit": "pcs", "units": "pcs", "copë": "pcs", "cope": "pcs"}
+
+
+def unit_of(payload, current=None):
+    """Two units: kg (main, decimals allowed) and pcs (counted in whole numbers 1, 2, 3).
+    An existing product that already uses another unit keeps it."""
+    raw = text(payload, "unit").lower()
+    if not raw:
+        return current or "kg"
+    if raw in UNITS:
+        return UNITS[raw]
+    if current and raw == current.lower():
+        return current
+    raise ApiError("Unit must be kg or pcs (pieces)")
+
+
+def check_whole(db, pid, qty, label="Quantity"):
+    """Products counted in pieces take whole numbers only."""
+    unit = db.execute("SELECT unit FROM products WHERE id=?", (pid,)).fetchone()["unit"]
+    if unit == "pcs" and qty is not None and abs(qty - round(qty)) > 1e-9:
+        raise ApiError(f"{label} must be a whole number for products counted in pieces")
+
+
+def product_fields(payload, current_unit=None):
     return {
         "sku": text(payload, "sku", required=True),
         "name": text(payload, "name", required=True),
         "category": text(payload, "category"),
         "spec": text(payload, "spec"),
-        "unit": text(payload, "unit", default="pcs") or "pcs",
+        "unit": unit_of(payload, current_unit),
         "min_stock": num(payload.get("min_stock", 0) or 0, "min_stock", 0),
         "unit_cost": num(payload.get("unit_cost"), "unit_cost", 0, required=False),
         "prodata_code": text(payload, "prodata_code") or None,
@@ -415,7 +439,8 @@ def create_product():
 def update_product(pid):
     db = get_db()
     payload = request.get_json(force=True) or {}
-    f = product_fields(payload)
+    cur_row = db.execute("SELECT unit FROM products WHERE id=?", (pid,)).fetchone()
+    f = product_fields(payload, cur_row["unit"] if cur_row else None)
     f["id"] = pid
     f["active"] = 1 if payload.get("active", True) else 0
     db.execute("BEGIN IMMEDIATE")
@@ -595,10 +620,12 @@ def post_movement():
 
         if kind == "IN":
             qty = num(d.get("qty"), "Quantity", 0.001)
+            check_whole(db, pid, qty)
             insert_movement(db, pid, lid, "IN", qty, lot, reference, note, operator)
 
         elif kind == "OUT":
             qty = num(d.get("qty"), "Quantity", 0.001)
+            check_whole(db, pid, qty)
             have = balance(db, pid, lid, lot)
             if qty > have + 1e-9:
                 raise ApiError(f"Not enough stock{' in lot ' + lot if lot else ''}: {have:g} available, {qty:g} requested")
@@ -606,6 +633,7 @@ def post_movement():
 
         elif kind == "TRANSFER":
             qty = num(d.get("qty"), "Quantity", 0.001)
+            check_whole(db, pid, qty)
             to_id = d.get("to_location_id")
             require_location(db, to_id, "Destination")
             if int(to_id) == int(lid):
@@ -619,6 +647,7 @@ def post_movement():
 
         else:  # ADJUST
             counted = num(d.get("counted"), "Counted quantity", 0)
+            check_whole(db, pid, counted, "Counted quantity")
             have = balance(db, pid, lid, lot)
             delta = round(counted - have, 3)
             mid = None
@@ -848,8 +877,9 @@ def import_products():
     try:
         for i, row in enumerate(rows, start=2):
             try:
-                f = product_fields(row)
-                exists = db.execute("SELECT id FROM products WHERE sku=?", (f["sku"],)).fetchone()
+                old = db.execute("SELECT unit FROM products WHERE sku=?", ((row.get("sku") or "").strip(),)).fetchone()
+                f = product_fields(row, old["unit"] if old else None)
+                exists = old
                 if exists:
                     db.execute("""UPDATE products SET name=:name,category=:category,spec=:spec,unit=:unit,min_stock=:min_stock,
                                   unit_cost=:unit_cost,prodata_code=:prodata_code,barcode=:barcode WHERE sku=:sku""", f)
@@ -900,6 +930,7 @@ def import_opening_stock():
                 if not loc_name:
                     raise ApiError("location is empty")
                 qty = num(row.get("qty"), "qty", 0.001)
+                check_whole(db, p["id"], qty, "qty")
                 loc = db.execute("SELECT id FROM locations WHERE name=?", (loc_name,)).fetchone()
                 loc_id = loc["id"] if loc else db.execute("INSERT INTO locations(name) VALUES (?)", (loc_name,)).lastrowid
                 insert_movement(db, p["id"], loc_id, "IN", qty, (row.get("lot") or "").strip(), "OPENING", "Opening stock import", operator)

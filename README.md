@@ -44,7 +44,7 @@ Every movement records the signed-in user. Passwords are hashed; 5 wrong attempt
 
 ## What it does
 
-- **Products** – SKU, name, category, spec, unit, minimum stock, unit cost, optional barcode / QR value, optional Prodata code.
+- **Products** – SKU, name, category, spec, unit, minimum stock, unit cost, unit (kg, the default, or pcs counted in whole numbers), optional barcode / QR value, optional Prodata code.
 - **Locations** – warehouse zones, raw-material store, packing area, racks/bins.
 - **Movements** – Receive, Issue, Transfer, Stocktake (enter the counted quantity; the app books the difference), with lot / heat number and reference.
 - **Safety checks** – cannot issue more than is on hand (per location and per lot); transfers are all-or-nothing; two people saving at once can't both take the last box.

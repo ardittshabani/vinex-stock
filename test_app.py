@@ -96,6 +96,50 @@ class StockTests(unittest.TestCase):
     def test_duplicate_sku(self):
         self.assertEqual(self.c.post("/api/products", json={"sku": "B1", "name": "Dup"}).status_code, 409)
 
+    def test_delete_product_without_history(self):
+        pid = self.c.post("/api/products", json={"sku": "TMP", "name": "Temp"}).get_json()["id"]
+        r = self.c.delete(f"/api/products/{pid}", json={})
+        self.assertEqual(r.status_code, 200)
+        self.assertNotIn("TMP", [p["sku"] for p in self.c.get("/api/products?all=1").get_json()])
+        self.assertEqual(self.c.delete(f"/api/products/{pid}", json={}).status_code, 404)
+
+    def test_delete_product_with_movements_needs_confirmation_flag(self):
+        self.move("IN", 10)
+        self.move("OUT", 3)
+        r = self.c.delete(f"/api/products/{self.pid}", json={})
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual(r.get_json()["movements"], 2)
+        self.assertEqual(len(self.c.get("/api/movements").get_json()), 2)  # nothing was touched
+        r = self.c.delete(f"/api/products/{self.pid}", json={"with_history": True})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get_json()["movements_deleted"], 2)
+        self.assertEqual(self.c.get("/api/movements").get_json(), [])
+        self.assertEqual(self.c.get("/api/products?all=1").get_json(), [])
+
+    def test_delete_product_removes_its_stocktake_counts_only(self):
+        other = self.c.post("/api/products", json={"sku": "B2", "name": "Other"}).get_json()["id"]
+        self.move("IN", 10)
+        self.move("ADJUST", 8)
+        self.c.post("/api/movements", json={"kind": "IN", "product_id": other, "location_id": self.main, "qty": 5})
+        self.assertEqual(self.c.delete(f"/api/products/{self.pid}", json={"with_history": True}).status_code, 200)
+        db = stock.connect()
+        self.assertEqual(db.execute("SELECT COUNT(*) FROM counts WHERE product_id=?", (self.pid,)).fetchone()[0], 0)
+        self.assertEqual(db.execute("SELECT COUNT(*) FROM movements WHERE product_id=?", (other,)).fetchone()[0], 1)
+        db.close()
+
+    def test_cannot_delete_raw_material_still_in_use(self):
+        rm = self.c.post("/api/products", json={"sku": "RM", "name": "Rod", "unit": "kg"}).get_json()["id"]
+        self.c.put(f"/api/products/{self.pid}", json={"sku": "B1", "name": "Bolt", "material_sku": "RM", "material_per_1000": 20})
+        r = self.c.delete(f"/api/products/{rm}", json={"with_history": True})
+        self.assertEqual(r.status_code, 409)
+        self.assertIn("B1", r.get_json()["error"])
+
+    def test_only_admin_can_delete_products(self):
+        self.c.post("/api/users", json={"username": "kim", "password": "password-kim", "role": "staff"})
+        kim = client_as("kim", "password-kim")
+        self.assertEqual(kim.delete(f"/api/products/{self.pid}", json={"with_history": True}).status_code, 403)
+        self.assertEqual(len(self.c.get("/api/products").get_json()), 1)
+
     def test_deactivate_location_with_stock_blocked(self):
         self.move("IN", 10)
         r = self.c.put(f"/api/locations/{self.main}", json={"name": "Main", "active": False})

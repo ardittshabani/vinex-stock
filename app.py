@@ -217,11 +217,12 @@ class ApiError(Exception):
     def __init__(self, message, status=400):
         super().__init__(message)
         self.message, self.status = message, status
+        self.extra = {}  # optional machine-readable details sent with the error
 
 
 @app.errorhandler(ApiError)
 def handle_api_error(e):
-    return jsonify(error=e.message), e.status
+    return jsonify(error=e.message, **e.extra), e.status
 
 
 def num(value, field, minimum=None, required=True):
@@ -462,6 +463,38 @@ def update_product(pid):
         db.execute("ROLLBACK")
         raise
     return jsonify(ok=True)
+
+
+@app.delete("/api/products/<int:pid>")
+def delete_product(pid):
+    """Admin only (see auth.allowed). A product with no movements is removed outright. One that has movements is
+    refused unless the body says {"with_history": true}, which also deletes its movements and stocktake counts."""
+    db = get_db()
+    payload = request.get_json(silent=True) or {}
+    with_history = payload.get("with_history") is True
+    db.execute("BEGIN IMMEDIATE")
+    try:
+        p = db.execute("SELECT sku, name FROM products WHERE id=?", (pid,)).fetchone()
+        if not p:
+            raise ApiError("Product not found", 404)
+        made = [r["sku"] for r in db.execute("SELECT sku FROM products WHERE material_id=? ORDER BY sku", (pid,))]
+        if made:
+            raise ApiError(f"'{p['sku']}' is the raw material of {', '.join(made[:5])}{'...' if len(made) > 5 else ''}. "
+                           "Clear \"Made from\" on those products first", 409)
+        moves = db.execute("SELECT COUNT(*) FROM movements WHERE product_id=?", (pid,)).fetchone()[0]
+        if moves and not with_history:
+            err = ApiError(f"'{p['sku']}' has {moves} stock movement{'s' if moves != 1 else ''}. "
+                           "Deactivate it instead, or delete it together with its history", 409)
+            err.extra = {"movements": moves}
+            raise err
+        db.execute("DELETE FROM counts WHERE product_id=?", (pid,))
+        db.execute("DELETE FROM movements WHERE product_id=?", (pid,))
+        db.execute("DELETE FROM products WHERE id=?", (pid,))
+        db.execute("COMMIT")
+    except Exception:
+        db.execute("ROLLBACK")
+        raise
+    return jsonify(ok=True, deleted_sku=p["sku"], movements_deleted=moves if with_history else 0)
 
 
 @app.get("/api/lookup")

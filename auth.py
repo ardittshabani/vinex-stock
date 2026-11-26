@@ -47,7 +47,7 @@ def user_dict(u):
 
 def check_new_password(pw, ApiError):
     if not isinstance(pw, str) or not (MIN_PASSWORD <= len(pw) <= MAX_PASSWORD):
-        raise ApiError(f"Password must be {MIN_PASSWORD}-{MAX_PASSWORD} characters")
+        raise ApiError(f"Fjalëkalimi duhet të ketë {MIN_PASSWORD}-{MAX_PASSWORD} karaktere")
 
 
 def allowed(role, method, path):
@@ -160,7 +160,7 @@ def init(app, get_db, connect, ApiError):
         with _fails_lock:
             rec = _fails.get(key)
             if rec and rec[1] > now:
-                raise ApiError(f"Too many failed attempts. Try again in {int(rec[1] - now) // 60 + 1} min.", 429)
+                raise ApiError(f"Shumë tentime të gabuara. Provoni përsëri pas {int(rec[1] - now) // 60 + 1} min.", 429)
         u = get_db().execute("SELECT * FROM users WHERE username=? AND active=1", (username,)).fetchone()
         ok = check_password_hash(u["password_hash"] if u else _DUMMY_HASH, password) and u is not None
         if not ok:
@@ -169,7 +169,7 @@ def init(app, get_db, connect, ApiError):
                     _fails.clear()
                 count = (_fails.get(key) or [0, 0])[0] + 1
                 _fails[key] = [0, now + LOCK_SECONDS] if count >= MAX_FAILS else [count, 0]
-            raise ApiError("Wrong username or password", 401)
+            raise ApiError("Emri i përdoruesit ose fjalëkalimi është gabim", 401)
         with _fails_lock:
             _fails.pop(key, None)
         session.clear()
@@ -190,7 +190,7 @@ def init(app, get_db, connect, ApiError):
     def change_own_password():
         d = request.get_json(force=True) or {}
         if not check_password_hash(g.user["password_hash"], str(d.get("current", ""))):
-            raise ApiError("Current password is wrong")
+            raise ApiError("Fjalëkalimi aktual është gabim")
         check_new_password(d.get("new"), ApiError)
         new_hash = generate_password_hash(d["new"])
         get_db().execute("UPDATE users SET password_hash=? WHERE id=?", (new_hash, g.user["id"]))
@@ -207,15 +207,15 @@ def init(app, get_db, connect, ApiError):
         d = request.get_json(force=True) or {}
         username, role = str(d.get("username", "")).strip(), d.get("role", "staff")
         if not USERNAME_RE.match(username):
-            raise ApiError("Username: 3-32 letters, digits, dot, dash or underscore")
+            raise ApiError("Emri i përdoruesit: 3-32 shkronja, shifra, pikë, vizë ose nënvizë")
         if role not in ROLES:
-            raise ApiError("Unknown role")
+            raise ApiError("Rol i panjohur")
         check_new_password(d.get("password"), ApiError)
         try:
             cur = get_db().execute("INSERT INTO users(username, password_hash, role) VALUES (?,?,?)",
                                    (username, generate_password_hash(d["password"]), role))
         except sqlite3.IntegrityError:
-            raise ApiError(f"User '{username}' already exists", 409)
+            raise ApiError(f"Përdoruesi '{username}' ekziston", 409)
         return jsonify(id=cur.lastrowid), 201
 
     @app.put("/api/users/<int:uid>")
@@ -223,11 +223,11 @@ def init(app, get_db, connect, ApiError):
         db, d = get_db(), request.get_json(force=True) or {}
         u = db.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
         if not u:
-            raise ApiError("User not found", 404)
+            raise ApiError("Përdoruesi nuk u gjet", 404)
         role = d.get("role", u["role"])
         active = 1 if d.get("active", bool(u["active"])) else 0
         if role not in ROLES:
-            raise ApiError("Unknown role")
+            raise ApiError("Rol i panjohur")
         new_hash = u["password_hash"]
         if d.get("password"):
             check_new_password(d["password"], ApiError)
@@ -235,7 +235,7 @@ def init(app, get_db, connect, ApiError):
         if u["role"] == "admin" and u["active"] and (role != "admin" or not active):
             others = db.execute("SELECT COUNT(*) FROM users WHERE role='admin' AND active=1 AND id!=?", (uid,)).fetchone()[0]
             if others == 0:
-                raise ApiError("There must be at least one active admin")
+                raise ApiError("Duhet të mbetet të paktën një administrator aktiv")
         db.execute("UPDATE users SET role=?, active=?, password_hash=? WHERE id=?", (role, active, new_hash, uid))
         if uid == g.user["id"] and new_hash != u["password_hash"]:
             session["ph"] = new_hash[-16:]

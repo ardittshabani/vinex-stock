@@ -148,7 +148,7 @@ def compute(db, stock, lead_days=14, window=90, today=None):
                 p = sku[pid]
                 anomalies.append({"id": e["id"], "date": e["d"], "sku": p["sku"], "name": p["name"], "unit": p["unit"],
                                   "kind": "OUT", "qty": e["q"], "operator": e["operator"],
-                                  "reason": f"Issue is {e['q'] / med:.1f}x the typical {round(med):,}"})
+                                  "reason": f"Dalja është {e['q'] / med:.1f}x më e madhe se zakonisht ({round(med):,})"})
     adj = db.execute(
         """SELECT m.id, date(m.created_at) AS d, m.qty, m.operator, p.id AS pid, p.sku, p.name, p.unit
            FROM movements m JOIN products p ON p.id=m.product_id
@@ -161,7 +161,7 @@ def compute(db, stock, lead_days=14, window=90, today=None):
         if pct >= 2:
             anomalies.append({"id": a["id"], "date": a["d"], "sku": a["sku"], "name": a["name"], "unit": a["unit"],
                               "kind": "ADJUST", "qty": a["qty"], "operator": a["operator"],
-                              "reason": f"Stocktake removed {pct:.1f}% of the stock"})
+                              "reason": f"Inventarizimi hoqi {pct:.1f}% të stokut"})
     anomalies.sort(key=lambda a: (a["date"], a["id"]), reverse=True)
 
     materials = material_requirements(items, lead_days)

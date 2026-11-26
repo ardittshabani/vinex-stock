@@ -11,7 +11,7 @@ from datetime import date, timedelta
 import insights
 
 CLEAN = "m.reversal_of IS NULL AND NOT EXISTS (SELECT 1 FROM movements r WHERE r.reversal_of = m.id)"
-WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+WEEKDAYS = ["Hën", "Mar", "Mër", "Enj", "Pre", "Sht", "Die"]
 
 
 def _where(f, start=None, end=None, alias="m"):

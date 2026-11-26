@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sq">
 <head>
 <meta charset="utf-8">
 <title>Vinex Stock</title>
@@ -290,23 +290,23 @@
   <div class="brand" id="brand"></div>
   <span class="sp"></span>
   <form class="gsearch" id="gsearch" role="search"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>
-    <input id="gq" type="search" placeholder="Find product, SKU or barcode" aria-label="Find product" autocomplete="off"><kbd>/</kbd></form>
+    <input id="gq" type="search" placeholder="Gjej artikullin, shifrën ose barkodin" aria-label="Gjej artikullin" autocomplete="off"><kbd>/</kbd></form>
   <span class="tdate" id="tdate"></span>
-  <button class="tbtn" id="refresh" title="Refresh data (F5)" aria-label="Refresh data"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg></button>
+  <button class="tbtn" id="refresh" title="Rifresko të dhënat (F5)" aria-label="Rifresko të dhënat"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg></button>
   <div id="whoami"></div>
 </header>
 <div class="app">
-  <aside class="side"><nav id="nav" aria-label="Main"></nav></aside>
+  <aside class="side"><nav id="nav" aria-label="Kryesore"></nav></aside>
   <main id="view"></main>
 </div>
 <div class="statusbar" id="statusbar"></div>
-<nav class="tabbar" id="tabbar" aria-label="Main"></nav>
+<nav class="tabbar" id="tabbar" aria-label="Kryesore"></nav>
 <dialog id="dlg"></dialog>
 <dialog id="scan"><div>
-  <h2>Scan a barcode or QR code</h2>
+  <h2>Skano barkodin ose kodin QR</h2>
   <div id="reader"></div>
   <div class="hint" id="scanmsg" style="margin-top:12px"></div>
-  <div class="actions"><button type="button" class="btn" id="scancancel">Cancel</button></div>
+  <div class="actions"><button type="button" class="btn" id="scancancel">Anulo</button></div>
 </div></dialog>
 <div id="toast" role="status"></div>
 <div id="login" hidden></div>
@@ -315,8 +315,28 @@
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt = n => (n == null ? '' : Number(n).toLocaleString('en-GB', { maximumFractionDigits: 2 }));
-const money = n => (n < 0 ? '−€' : '€') + Math.abs(Number(n)).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = n => (n == null ? '' : Number(n).toLocaleString('de-DE', { maximumFractionDigits: 2 }));
+const money = n => (n < 0 ? '−' : '') + Math.abs(Number(n)).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+/* Albanian dates, formatted here so every browser shows the same */
+const MUAJ = ['jan', 'shk', 'mar', 'pri', 'maj', 'qer', 'korr', 'gush', 'sht', 'tet', 'nën', 'dhj'];
+const DITA = ['Die', 'Hën', 'Mar', 'Mër', 'Enj', 'Pre', 'Sht'];
+const pad2 = n => String(n).padStart(2, '0');
+const sqDate = (v, f) => {
+  const d = v instanceof Date ? v : new Date(String(v).length === 10 ? v + 'T00:00:00' : String(v).replace(' ', 'T'));
+  if (isNaN(d)) return String(v);
+  const D = d.getDate(), M = MUAJ[d.getMonth()], Y = d.getFullYear(), T = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  return { dm: `${D} ${M}`, dmy: `${D} ${M} ${Y}`, m: M, my: `${M} ${String(Y).slice(2)}`, dmt: `${D} ${M}, ${T}`, t: T, wdmy: `${DITA[d.getDay()]}, ${D} ${M} ${Y}` }[f];
+};
+const UNIT = u => u === 'pcs' ? 'copë' : (u || '');
+/* the other unit, from the weight of 1,000 pieces: copë -> kg, kg -> copë */
+const ALT = (qty, p) => {
+  const w = p && p.kg_per_1000;
+  if (!w || qty == null) return '';
+  if (p.unit === 'pcs') { const kg = qty * w / 1000; return `≈ ${fmt(kg >= 100 ? Math.round(kg) : kg >= 1 ? Math.round(kg * 10) / 10 : Math.round(kg * 1000) / 1000)} kg`; }
+  if (p.unit === 'kg') return `≈ ${fmt(Math.round(qty * 1000 / w))} copë`;
+  return '';
+};
+const altLine = (qty, p) => { const t = ALT(qty, p); return t ? `<div class="sub">${t}</div>` : ''; };
 const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
                 set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 
@@ -345,7 +365,7 @@ const ICONS = {
   clip: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11l2 2 4-4M9 17h6"/>',
 };
 const icon = (n, cls = 'i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
-const CREDIT = 'Developed by Ardit Shabani';
+const CREDIT = 'Zhvilluar nga Ardit Shabani';
 const BRAND = `<img class="mark" src="/static/icons/icon-192.png?v=4" alt="" width="26" height="26"><span>Vinex Stock<small>Vinex Fasteners</small></span>`;
 
 async function api(path, opts = {}) {
@@ -363,32 +383,32 @@ async function api(path, opts = {}) {
 document.addEventListener('click', e => {
   $$('details.dd[open]').forEach(d => { if (!d.contains(e.target) || e.target.closest('.menu > *')) d.open = false; });
 });
-function moreMenu(items, label = 'More') { return `<details class="dd"><summary class="btn">${label}</summary><div class="menu">${items}</div></details>`; }
+function moreMenu(items, label = 'Më shumë') { return `<details class="dd"><summary class="btn">${label}</summary><div class="menu">${items}</div></details>`; }
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600); }
 
 const state = { tab: 'dashboard', user: null, users: [], products: [], locations: [], stock: [], stockFilter: '', lowOnly: false,
   stockSort: { key: 'sku', dir: 1 }, movQ: '', movKind: '', movProduct: null,
   lead: store.get('vinex.lead', 14), insView: store.get('vinex.insView', 'reorder'), window: store.get('vinex.window', 90), insAll: false };
-const TABS = [['dashboard','Home','home','Stock'],['stock','Stock list','stock','Stock'],['movements','Movements','moves','Stock'],
-              ['products','Products','products','Catalogue'],['locations','Locations','locations','Catalogue'],
-              ['an-overview','Overview','insights','Analytics'],['an-product','Product analysis','trend','Analytics'],
-              ['an-reorder','Reorder and materials','cart','Analytics'],['an-value','Value and turnover','coins','Analytics'],
-              ['an-activity','Warehouse activity','pulse','Analytics'],['an-stocktake','Stocktake accuracy','clip','Analytics'],
-              ['users','Users','users','Administration']];
+const TABS = [['dashboard','Ballina','home','Stoku'],['stock','Lista e stokut','stock','Stoku'],['movements','Lëvizjet','moves','Stoku'],
+              ['products','Artikujt','products','Katalogu'],['locations','Lokacionet','locations','Katalogu'],
+              ['an-overview','Përmbledhja','insights','Analitika'],['an-product','Analiza e artikullit','trend','Analitika'],
+              ['an-reorder','Riporositja dhe lënda e parë','cart','Analitika'],['an-value','Vlera dhe qarkullimi','coins','Analitika'],
+              ['an-activity','Aktiviteti i magazinës','pulse','Analitika'],['an-stocktake','Saktësia e inventarizimit','clip','Analitika'],
+              ['users','Përdoruesit','users','Administrimi']];
 const tabInfo = k => TABS.find(t => t[0] === k);
 const PHONE_TABS = ['dashboard', 'stock', 'an-overview', 'movements'];
 const isAdmin = () => state.user?.role === 'admin';
 const canMove = () => ['admin', 'staff'].includes(state.user?.role);
-const KIND_LABEL = { IN:'Received', OUT:'Issued', ADJUST:'Stocktake', TRANSFER_IN:'Transfer in', TRANSFER_OUT:'Transfer out' };
-const ROLE_LABEL = { admin:'Administrator', staff:'Warehouse staff', viewer:'Read only' };
+const KIND_LABEL = { IN:'Pranim', OUT:'Dalje', ADJUST:'Inventarizim', TRANSFER_IN:'Transferim hyrje', TRANSFER_OUT:'Transferim dalje' };
+const ROLE_LABEL = { admin:'Administrator', staff:'Magazinier', viewer:'Vetëm lexim' };
 
 /* ---------- shell ---------- */
 function renderWho() {
   const u = state.user;
-  const items = `<button class="m-pw">${icon('key')}Change password</button><button class="m-out">${icon('out')}Sign out</button>`;
-  $('#whoami').innerHTML = u ? `<details class="dd"><summary class="who" aria-label="Account"><span class="avatar">${esc(u.username[0].toUpperCase())}</span>
+  const items = `<button class="m-pw">${icon('key')}Ndrysho fjalëkalimin</button><button class="m-out">${icon('out')}Çkyçu</button>`;
+  $('#whoami').innerHTML = u ? `<details class="dd"><summary class="who" aria-label="Llogaria"><span class="avatar">${esc(u.username[0].toUpperCase())}</span>
       <span class="nm"><b>${esc(u.username)}</b> <span class="r">${ROLE_LABEL[u.role] || esc(u.role)}</span></span></summary>
-      <div class="menu"><div class="who-l">Signed in as ${esc(u.username)}</div>${items}</div></details>` : '';
+      <div class="menu"><div class="who-l">I kyçur si ${esc(u.username)}</div>${items}</div></details>` : '';
   renderStatus();
   $$('.m-pw').forEach(b => b.onclick = passwordDialog);
   $$('.m-out').forEach(b => b.onclick = signOut);
@@ -398,11 +418,11 @@ function showLogin(msg) {
   state.user = null; renderWho();
   $('#view').innerHTML = ''; if ($('#dlg').open) $('#dlg').close();
   const el = $('#login'); el.hidden = false;
-  el.innerHTML = `<form class="logincard"><div class="lh"><div class="brand">${BRAND}</div></div><div class="lb"><p>Sign in to manage stock.</p>
+  el.innerHTML = `<form class="logincard"><div class="lh"><div class="brand">${BRAND}</div></div><div class="lb"><p>Kyçuni për të menaxhuar stokun.</p>
     <div class="err" ${msg ? '' : 'hidden'}>${esc(msg || '')}</div>
-    <div class="field"><label for="lu">Username</label><input id="lu" name="username" autocomplete="username" autocapitalize="none" required autofocus></div>
-    <div class="field"><label for="lp">Password</label><input id="lp" name="password" type="password" autocomplete="current-password" required></div>
-    <button class="btn dark">Sign in</button></div></form><p class="credit login-credit">${CREDIT}</p>`;
+    <div class="field"><label for="lu">Emri i përdoruesit</label><input id="lu" name="username" autocomplete="username" autocapitalize="none" required autofocus></div>
+    <div class="field"><label for="lp">Fjalëkalimi</label><input id="lp" name="password" type="password" autocomplete="current-password" required></div>
+    <button class="btn dark">Kyçu</button></div></form><p class="credit login-credit">${CREDIT}</p>`;
   const form = $('form', el);
   form.onsubmit = async e => {
     e.preventDefault();
@@ -420,7 +440,7 @@ function renderNav() {
   $('#nav').innerHTML = visibleTabs().map(([k, l, ic, g]) => (g !== grp ? `<div class="grp">${grp = g}</div>` : '') +
     `<button data-tab="${k}" class="${state.tab === k ? 'active' : ''}" ${state.tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${l}</button>`).join('');
   const inMore = !PHONE_TABS.includes(state.tab) && !state.tab.startsWith('an-');
-  $('#tabbar').innerHTML = PHONE_TABS.map(k => TABS.find(t => t[0] === k)).map(([k, l, ic]) => `<button data-tab="${k}" class="${state.tab === k || (k === 'an-overview' && state.tab.startsWith('an-')) ? 'active' : ''}">${icon(ic)}${{ 'Stock list': 'Stock', 'Overview': 'Analytics' }[l] || l}</button>`).join('')
+  $('#tabbar').innerHTML = PHONE_TABS.map(k => TABS.find(t => t[0] === k)).map(([k, l, ic]) => `<button data-tab="${k}" class="${state.tab === k || (k === 'an-overview' && state.tab.startsWith('an-')) ? 'active' : ''}">${icon(ic)}${{ 'Lista e stokut': 'Stoku', 'Përmbledhja': 'Analitika' }[l] || l}</button>`).join('')
     + `<button data-more class="${inMore ? 'active' : ''}">${icon('more')}More</button>`;
   $$('#nav button, #tabbar button[data-tab]').forEach(b => b.onclick = () => go(b.dataset.tab));
   $('#tabbar [data-more]').onclick = moreSheet;
@@ -428,11 +448,11 @@ function renderNav() {
 function moreSheet() {
   const dlg = $('#dlg');
   const extra = visibleTabs().filter(([k]) => !PHONE_TABS.includes(k));
-  dlg.innerHTML = `<div class="sheet"><h2>More</h2><div class="menu-list">
+  dlg.innerHTML = `<div class="sheet"><h2>Më shumë</h2><div class="menu-list">
     ${extra.map(([k, l, ic]) => `<button data-tab="${k}">${icon(ic)}${l}</button>`).join('')}
-    <button class="m-pw">${icon('key')}Change password</button><button class="m-out">${icon('out')}Sign out</button></div>
+    <button class="m-pw">${icon('key')}Ndrysho fjalëkalimin</button><button class="m-out">${icon('out')}Çkyçu</button></div>
     <p class="credit" style="text-align:center;margin:14px 0 0">${CREDIT}</p>
-    <div class="actions"><button class="btn" data-close>Close</button></div></div>`;
+    <div class="actions"><button class="btn" data-close>Mbyll</button></div></div>`;
   $$('[data-tab]', dlg).forEach(b => b.onclick = () => { dlg.close(); go(b.dataset.tab); });
   $('.m-pw', dlg).onclick = () => { dlg.close(); passwordDialog(); };
   $('.m-out', dlg).onclick = () => { dlg.close(); signOut(); };
@@ -458,10 +478,10 @@ function renderStatus() {
   const u = state.user, el = $('#statusbar');
   if (!u) { el.innerHTML = ''; return; }
   const low = state.stock.filter(s => s.status !== 'ok').length;
-  el.innerHTML = `<span class="ok">Connected</span><span>${esc(u.username)}, ${ROLE_LABEL[u.role]}</span><span>${fmt(state.products.filter(p => p.active).length)} products</span>
-    ${low ? `<span>${low} at or below minimum</span>` : ''}<span class="sp"></span>
-    ${canMove() ? '<span><kbd>F2</kbd> Receive <kbd>F3</kbd> Issue <kbd>F4</kbd> Transfer</span>' : ''}<span><kbd>/</kbd> Find</span>
-    <span>Updated ${state.baseAt ? new Date(state.baseAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}</span><span class="credit">${CREDIT}</span>`;
+  el.innerHTML = `<span class="ok">I lidhur</span><span>${esc(u.username)}, ${ROLE_LABEL[u.role]}</span><span>${fmt(state.products.filter(p => p.active).length)} artikuj</span>
+    ${low ? `<span>${low} në ose nën minimum</span>` : ''}<span class="sp"></span>
+    ${canMove() ? '<span><kbd>F2</kbd> Pranim <kbd>F3</kbd> Dalje <kbd>F4</kbd> Transferim</span>' : ''}<span><kbd>/</kbd> Gjej</span>
+    <span>Përditësuar ${state.baseAt ? sqDate(new Date(state.baseAt), 't') : ''}</span><span class="credit">${CREDIT}</span>`;
 }
 /* keyboard shortcuts, as in desktop ERP software */
 document.addEventListener('keydown', e => {
@@ -469,10 +489,10 @@ document.addEventListener('keydown', e => {
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
   const fk = { F2: 'IN', F3: 'OUT', F4: 'TRANSFER' }[e.key];
   if (fk && canMove()) { e.preventDefault(); movementDialog(fk); }
-  else if (e.key === 'F5') { e.preventDefault(); show(true); toast('Data refreshed'); }
+  else if (e.key === 'F5') { e.preventDefault(); show(true); toast('Të dhënat u rifreskuan'); }
   else if (e.key === '/' && !typing) { e.preventDefault(); $('#gq').focus(); }
 });
-$('#refresh').onclick = () => show(true).then(() => toast('Data refreshed'));
+$('#refresh').onclick = () => show(true).then(() => toast('Të dhënat u rifreskuan'));
 $('#gsearch').onsubmit = async e => {
   e.preventDefault();
   const q = $('#gq').value.trim(); if (!q) return;
@@ -480,10 +500,10 @@ $('#gsearch').onsubmit = async e => {
   try { const p = await api('/lookup?code=' + encodeURIComponent(q)); state.stockFilter = p.sku; go('stock'); lotsDialog(p.id); }
   catch { state.stockFilter = q; state.lowOnly = false; go('stock'); }
 };
-$('#tdate').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+$('#tdate').textContent = sqDate(new Date(), 'wdmy');
 
 /* ---------- shared ---------- */
-const STATUS = { ok: ['ok', 'In stock'], low: ['low', 'Low'], out: ['out', 'Out of stock'] };
+const STATUS = { ok: ['ok', 'Në stok'], low: ['low', 'I ulët'], out: ['out', 'Pa stok'] };
 const statusPill = s => `<span class="pill ${STATUS[s][0]}">${STATUS[s][1]}</span>`;
 function gauge(s) {
   const min = s.min_stock || 0, scale = Math.max(s.total, min * 2, 1);
@@ -493,15 +513,15 @@ function gauge(s) {
 const kindClass = r => r.kind === 'ADJUST' ? 'adj' : r.qty > 0 ? 'in' : 'outq';
 const kindCell = r => `<span class="${kindClass(r)} strong">${KIND_LABEL[r.kind] || r.kind}</span>`;
 const signed = n => (n > 0 ? '+' : n < 0 ? '−' : '') + fmt(Math.abs(n));
-const when = s => { const d = new Date(s.replace(' ', 'T')); return isNaN(d) ? s : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
+const when = s => sqDate(s, 'dmt');
 const movRows = list => list.map(r => `<tr class="${r.reversed || r.reversal_of ? 'dim' : ''}">
-  <td data-label="When" class="muted small" style="white-space:nowrap">${esc(when(r.created_at))}</td>
-  <td data-label="Type">${kindCell(r)}${r.reversal_of ? ' <span class="tag">reversal</span>' : ''}${r.reversed ? ' <span class="tag">reversed</span>' : ''}</td>
-  <td data-label="Product"><div class="sku">${esc(r.sku)}</div><div class="sub">${esc(r.product)}</div></td><td data-label="Location">${esc(r.location)}</td>
-  <td data-label="Qty" class="num"><span class="qty ${kindClass(r)}">${signed(r.qty)}</span><span class="unit">${esc(r.unit)}</span></td>
-  <td data-label="Lot">${esc(r.lot)}</td><td data-label="Reference">${esc(r.reference)}</td><td data-label="Note" class="small muted">${esc(r.note)}</td><td data-label="By" class="small">${esc(r.operator)}</td>
-  ${isAdmin() ? `<td class="rowacts">${!r.reversed && !r.reversal_of ? `<button class="link" onclick="reverseDialog(${r.id})">Reverse</button>` : ''}</td>` : ''}</tr>`).join('');
-const movHead = () => '<tr><th>When</th><th>Type</th><th>Product</th><th>Location</th><th class="num">Qty</th><th>Lot</th><th>Reference</th><th>Note</th><th>By</th>' + (isAdmin() ? '<th></th>' : '') + '</tr>';
+  <td data-label="Kur" class="muted small" style="white-space:nowrap">${esc(when(r.created_at))}</td>
+  <td data-label="Lloji">${kindCell(r)}${r.reversal_of ? ' <span class="tag">reversal</span>' : ''}${r.reversed ? ' <span class="tag">reversed</span>' : ''}</td>
+  <td data-label="Artikulli"><div class="sku">${esc(r.sku)}</div><div class="sub">${esc(r.product)}</div></td><td data-label="Lokacioni">${esc(r.location)}</td>
+  <td data-label="Sasia" class="num"><span class="qty ${kindClass(r)}">${signed(r.qty)}</span><span class="unit">${esc(UNIT(r.unit))}</span></td>
+  <td data-label="Loti">${esc(r.lot)}</td><td data-label="Referenca">${esc(r.reference)}</td><td data-label="Shënimi" class="small muted">${esc(r.note)}</td><td data-label="Nga" class="small">${esc(r.operator)}</td>
+  ${isAdmin() ? `<td class="rowacts">${!r.reversed && !r.reversal_of ? `<button class="link" onclick="reverseDialog(${r.id})">Storno</button>` : ''}</td>` : ''}</tr>`).join('');
+const movHead = () => '<tr><th>Kur</th><th>Lloji</th><th>Artikulli</th><th>Lokacioni</th><th class="num">Sasia</th><th>Loti</th><th>Referenca</th><th>Shënimi</th><th>Nga</th>' + (isAdmin() ? '<th></th>' : '') + '</tr>';
 
 function openDialog(html, onSubmit) {
   const dlg = $('#dlg');
@@ -523,36 +543,36 @@ function openDialog(html, onSubmit) {
 async function viewDashboard() {
   const d = await api('/dashboard');
   const attention = d.low_count + d.out_count;
-  $('#view').innerHTML = phead('Home', '', canMove() ? `<button class="btn primary" onclick="movementDialog('IN')">${icon('plus')}Receive <span class="k">F2</span></button>
-      <button class="btn" onclick="movementDialog('OUT')">${icon('minus')}Issue <span class="k">F3</span></button>
-      <button class="btn" onclick="movementDialog('TRANSFER')">${icon('moves')}Transfer <span class="k">F4</span></button>` : '') + `
+  $('#view').innerHTML = phead('Ballina', '', canMove() ? `<button class="btn primary" onclick="movementDialog('IN')">${icon('plus')}Pranim <span class="k">F2</span></button>
+      <button class="btn" onclick="movementDialog('OUT')">${icon('minus')}Dalje <span class="k">F3</span></button>
+      <button class="btn" onclick="movementDialog('TRANSFER')">${icon('moves')}Transferim <span class="k">F4</span></button>` : '') + `
     <div class="strip" style="--n:4">
-      <div><div class="v">${fmt(d.products)}</div><div class="l">Active products</div></div>
-      <div class="${d.out_count ? 'bad' : attention ? 'warn' : ''}"><div class="v">${attention}</div><div class="l">At or below minimum${d.out_count ? `, ${d.out_count} out of stock` : ''}</div></div>
-      <div><div class="v">${money(d.stock_value)}</div><div class="l">Stock value</div></div>
-      <div><div class="v">${d.movements_today}</div><div class="l">Movements today</div></div>
+      <div><div class="v">${fmt(d.products)}</div><div class="l">Artikuj aktivë</div></div>
+      <div class="${d.out_count ? 'bad' : attention ? 'warn' : ''}"><div class="v">${attention}</div><div class="l">Në ose nën minimum${d.out_count ? `, ${d.out_count} pa stok` : ''}</div></div>
+      <div><div class="v">${money(d.stock_value)}</div><div class="l">Vlera e stokut</div></div>
+      <div><div class="v">${d.movements_today}</div><div class="l">Lëvizje sot</div></div>
     </div>
     <div class="cols wide-left">
-      <section class="panel"><div class="ph"><h2>Needs reordering</h2>${d.low.length ? `<a href="/api/export/reorder.csv">Download list</a>` : ''}</div>
-        ${d.low.length ? `<div class="tablewrap"><table class="cards stock"><thead><tr><th>Product</th><th>Level</th><th class="num">On hand</th></tr></thead><tbody>${d.low.map(s => `
+      <section class="panel"><div class="ph"><h2>Për riporositje</h2>${d.low.length ? `<a href="/api/export/reorder.csv">Shkarko listën</a>` : ''}</div>
+        ${d.low.length ? `<div class="tablewrap"><table class="cards stock"><thead><tr><th>Artikulli</th><th>Niveli</th><th class="num">Në stok</th></tr></thead><tbody>${d.low.map(s => `
           <tr><td class="c-prod"><div class="sku">${esc(s.sku)}</div><div class="sub">${esc(s.name)}</div></td><td class="c-gauge" style="width:30%">${gauge(s)}</td>
-          <td class="num c-qty"><span class="qty">${fmt(s.total)}</span><span class="unit">${esc(s.unit)}</span><div class="sub">minimum ${fmt(s.min_stock)}</div></td></tr>`).join('')}</tbody></table></div>`
-        : '<div class="empty"><b>Nothing below minimum</b>Every product is above its alert level.</div>'}
+          <td class="num c-qty"><span class="qty">${fmt(s.total)}</span><span class="unit">${esc(UNIT(s.unit))}</span>${altLine(s.total, s)}<div class="sub">minimumi ${fmt(s.min_stock)}</div></td></tr>`).join('')}</tbody></table></div>`
+        : '<div class="empty"><b>Asgjë nën minimum</b>Çdo artikull është mbi nivelin e alarmit.</div>'}
       </section>
       <div class="stack">
-        <section class="panel"><div class="ph"><h2>Activity, last 14 days</h2></div><div class="pb" id="chart"></div></section>
-        <section class="panel"><div class="ph"><h2>Latest movements</h2><button class="link" onclick="go('movements')">See all</button></div>
+        <section class="panel"><div class="ph"><h2>Aktiviteti, 14 ditët e fundit</h2></div><div class="pb" id="chart"></div></section>
+        <section class="panel"><div class="ph"><h2>Lëvizjet e fundit</h2><button class="link" onclick="go('movements')">Shiko të gjitha</button></div>
           ${d.recent.length ? `<ul class="feed">${d.recent.slice(0, 6).map(r => `<li><span class="k ${kindClass(r)}">${r.qty > 0 ? '+' : '−'}</span>
             <div><div class="sku">${esc(r.sku)}</div><div class="t">${KIND_LABEL[r.kind]} · ${esc(when(r.created_at))}</div></div>
-            <div class="num"><span class="qty ${kindClass(r)}">${signed(r.qty)}</span><span class="unit">${esc(r.unit)}</span></div></li>`).join('')}</ul>`
-          : '<div class="empty"><b>No movements yet</b>Receive stock to get started.</div>'}
+            <div class="num"><span class="qty ${kindClass(r)}">${signed(r.qty)}</span><span class="unit">${esc(UNIT(r.unit))}</span></div></li>`).join('')}</ul>`
+          : '<div class="empty"><b>Ende pa lëvizje</b>Pranoni stok për të filluar.</div>'}
         </section>
       </div>
     </div>`;
   drawActivity($('#chart'), d.activity);
 }
 function drawActivity(el, a) {
-  if (!a || a.every(x => !x.in && !x.out)) { el.innerHTML = '<div class="empty" style="padding:20px"><b>No receipts or issues</b>Bars appear here as stock moves.</div>'; return; }
+  if (!a || a.every(x => !x.in && !x.out)) { el.innerHTML = '<div class="empty" style="padding:20px"><b>Pa pranime apo dalje</b>Shtyllat shfaqen këtu kur stoku lëviz.</div>'; return; }
   const max = Math.max(1, ...a.flatMap(x => [x.in, x.out]));
   const W = Math.max(260, el.clientWidth - 36), H = 140, pad = 4, bw = (W - 2 * pad) / a.length, plot = H - 26;
   const bars = a.map((x, i) => {
@@ -563,9 +583,9 @@ function drawActivity(el, a) {
       <rect x="${x0 + bw / 2 + 1}" y="${H - 20 - ho}" width="${bwid}" height="${ho}" rx="2" fill="#c0392b"/>
       ${showLabel ? `<text x="${x0 + bw / 2}" y="${H - 5}" text-anchor="middle" font-size="11" fill="var(--faint)">${+x.date.slice(8)}</text>` : ''}</g>`;
   }).join('');
-  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Movements per day, last 14 days">
+  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Lëvizje në ditë, 14 ditët e fundit">
       <line x1="0" x2="${W}" y1="${H - 20}" y2="${H - 20}" stroke="var(--line)"/>${bars}</svg>
-    <div class="legend"><span><i style="background:var(--ok)"></i>Received</span><span><i style="background:#c0392b"></i>Issued</span><span>Busiest day: ${max} movements</span></div>`;
+    <div class="legend"><span><i style="background:var(--ok)"></i>Pranuar</span><span><i style="background:#c0392b"></i>Dalë</span><span>Dita më e ngarkuar: ${max} lëvizje</span></div>`;
 }
 
 /* ---------- stock ---------- */
@@ -573,19 +593,19 @@ function stockTable() {
   const q = state.stockFilter.toLowerCase();
   const rows = state.stock.filter(s => (!state.lowOnly || s.status !== 'ok') &&
     (!q || [s.sku, s.name, s.category, s.spec, s.barcode].join(' ').toLowerCase().includes(q)));
-  if (!rows.length) return state.stock.length ? '<div class="empty"><b>No products match</b>Try another search or clear the filter.</div>'
-    : '<div class="empty"><b>No products yet</b>Add products under Products, or import a CSV.</div>';
+  if (!rows.length) return state.stock.length ? '<div class="empty"><b>Asnjë artikull nuk përputhet</b>Provoni një kërkim tjetër ose hiqni filtrin.</div>'
+    : '<div class="empty"><b>Ende pa artikuj</b>Shtoni artikuj te Artikujt, ose importoni një CSV.</div>';
   const { key, dir } = state.stockSort, by = SORTERS[key];
   rows.sort((a, b) => { const x = by(a), y = by(b); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
-  return `<table class="cards stock"><thead><tr>${sortHead('Product', 'sku')}${sortHead('Category', 'category')}<th>Level</th>${sortHead('On hand', 'total', 'num')}${sortHead('Status', 'status')}<th></th></tr></thead><tbody>${rows.map(s => `
+  return `<table class="cards stock"><thead><tr>${sortHead('Artikulli', 'sku')}${sortHead('Kategoria', 'category')}<th>Niveli</th>${sortHead('Në stok', 'total', 'num')}${sortHead('Statusi', 'status')}<th></th></tr></thead><tbody>${rows.map(s => `
     <tr><td class="c-prod"><div class="sku">${esc(s.sku)}</div><div class="sub">${esc(s.name)}${s.spec ? ` · ${esc(s.spec)}` : ''}</div></td>
     <td class="hm muted">${esc(s.category)}</td>
     <td class="c-gauge" style="width:18%">${gauge(s)}</td>
-    <td class="num c-qty"><span class="qty">${fmt(s.total)}</span><span class="unit">${esc(s.unit)}</span>
+    <td class="num c-qty"><span class="qty">${fmt(s.total)}</span><span class="unit">${esc(UNIT(s.unit))}</span>${altLine(s.total, s)}
       ${s.locations.length > 1 ? `<div class="sub">${s.locations.length} locations</div>` : s.locations.length ? `<div class="sub">${esc(s.locations[0].location)}</div>` : ''}</td>
     <td class="c-status">${statusPill(s.status)}</td>
-    <td class="rowacts"><button class="link" onclick="lotsDialog(${s.id})">Details</button><button class="link" onclick="showHistory(${s.id})">History</button><button class="link" onclick="openProduct(${s.id})">Analysis</button></td></tr>`).join('')}</tbody></table>
-    <div class="gridfoot"><span>Showing ${rows.length} of ${state.stock.length} products</span><span>Value on hand ${money(rows.reduce((t, s) => t + Math.max(s.total, 0) * (s.unit_cost || 0), 0))}</span></div>`;
+    <td class="rowacts"><button class="link" onclick="lotsDialog(${s.id})">Detajet</button><button class="link" onclick="showHistory(${s.id})">Historiku</button><button class="link" onclick="openProduct(${s.id})">Analiza</button></td></tr>`).join('')}</tbody></table>
+    <div class="gridfoot"><span>Shfaqen ${rows.length} nga ${state.stock.length} artikuj</span><span>Vlera në stok ${money(rows.reduce((t, s) => t + Math.max(s.total, 0) * (s.unit_cost || 0), 0))}</span></div>`;
 }
 const SORTERS = {
   sku: s => s.sku.toLowerCase(), category: s => (s.category || '').toLowerCase(),
@@ -593,7 +613,7 @@ const SORTERS = {
 };
 function sortHead(label, key, cls = '') {
   const on = state.stockSort.key === key;
-  return `<th class="sortable ${cls}" data-sort="${key}" title="Sort by ${label}" ${on ? `aria-sort="${state.stockSort.dir > 0 ? 'ascending' : 'descending'}"` : ''}>${label}<span class="arr">${on ? (state.stockSort.dir > 0 ? '▲' : '▼') : ''}</span></th>`;
+  return `<th class="sortable ${cls}" data-sort="${key}" title="Rendit sipas: ${label}" ${on ? `aria-sort="${state.stockSort.dir > 0 ? 'ascending' : 'descending'}"` : ''}>${label}<span class="arr">${on ? (state.stockSort.dir > 0 ? '▲' : '▼') : ''}</span></th>`;
 }
 function showHistory(pid) {
   if ($('#dlg').open) $('#dlg').close();
@@ -602,16 +622,16 @@ function showHistory(pid) {
 }
 async function viewStock() {
   const low = state.stock.filter(s => s.status !== 'ok').length;
-  $('#view').innerHTML = phead('Stock list', `${state.stock.length} products${low ? `, ${low} at or below minimum` : ''}`, canMove() ? `
-      <button class="btn primary" onclick="movementDialog('IN')">${icon('plus')}Receive <span class="k">F2</span></button>
-      <button class="btn" onclick="movementDialog('OUT')">${icon('minus')}Issue <span class="k">F3</span></button>
-      <button class="btn" onclick="movementDialog('TRANSFER')">${icon('moves')}Transfer <span class="k">F4</span></button>
-      ${moreMenu(`<button onclick="movementDialog('ADJUST')">Stocktake count</button><a href="/api/export/stock.csv">Download stock (CSV)</a>`)}`
-      : `<a class="btn" href="/api/export/stock.csv">${icon('download')}Download CSV</a>`) + `
+  $('#view').innerHTML = phead('Lista e stokut', `${state.stock.length} artikuj${low ? `, ${low} në ose nën minimum` : ''}`, canMove() ? `
+      <button class="btn primary" onclick="movementDialog('IN')">${icon('plus')}Pranim <span class="k">F2</span></button>
+      <button class="btn" onclick="movementDialog('OUT')">${icon('minus')}Dalje <span class="k">F3</span></button>
+      <button class="btn" onclick="movementDialog('TRANSFER')">${icon('moves')}Transferim <span class="k">F4</span></button>
+      ${moreMenu(`<button onclick="movementDialog('ADJUST')">Inventarizim</button><a href="/api/export/stock.csv">Shkarko stokun (CSV)</a>`)}`
+      : `<a class="btn" href="/api/export/stock.csv">${icon('download')}Shkarko CSV</a>`) + `
     <div class="filters">
-      <div class="search">${icon('search')}<input type="search" id="sf" placeholder="Search SKU, name, spec, barcode" aria-label="Search stock" value="${esc(state.stockFilter)}"></div>
-      <button class="btn" onclick="scanToSearch()">${icon('scan')}Scan</button>
-      <label class="check"><input type="checkbox" id="lowonly" ${state.lowOnly ? 'checked' : ''}> Only low or out of stock</label>
+      <div class="search">${icon('search')}<input type="search" id="sf" placeholder="Kërko shifrën, emërtimin, specifikimin, barkodin" aria-label="Kërko stokun" value="${esc(state.stockFilter)}"></div>
+      <button class="btn" onclick="scanToSearch()">${icon('scan')}Skano</button>
+      <label class="check"><input type="checkbox" id="lowonly" ${state.lowOnly ? 'checked' : ''}> Vetëm të ulët ose pa stok</label>
     </div>
     <section class="panel tablewrap" id="stocktable">${stockTable()}</section>`;
   $('#stocktable').onclick = e => {
@@ -629,15 +649,15 @@ async function lotsDialog(pid) {
   const dlg = $('#dlg');
   dlg.innerHTML = `<form method="dialog"><h2>${esc(p.sku)}</h2>
     <p class="muted" style="margin:-10px 0 16px">${esc(p.name)}${p.spec ? ` · ${esc(p.spec)}` : ''}</p>
-    ${s ? `<div style="margin-bottom:16px">${gauge(s)}<div class="small muted" style="margin-top:6px">${fmt(s.total)} ${esc(p.unit)} on hand${p.min_stock ? `, minimum ${fmt(p.min_stock)}` : ''}</div></div>` : ''}
-    ${rows.length ? `<div class="panel tablewrap"><table><thead><tr><th>Location</th><th>Lot / heat no.</th><th class="num">Qty</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.location)}</td><td>${esc(r.lot) || '<span class="muted">No lot</span>'}</td><td class="num"><span class="qty">${fmt(r.qty)}</span><span class="unit">${esc(p.unit)}</span></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No stock.</div>'}
-    <div class="actions"><button type="button" class="btn" onclick="$('#dlg').close();openProduct(${pid})">Analysis</button><button type="button" class="btn" onclick="showHistory(${pid})">History</button>
-      ${canMove() ? `<button type="button" class="btn" onclick="$('#dlg').close();movementDialog('OUT',${pid})">Issue</button><button type="button" class="btn primary" onclick="$('#dlg').close();movementDialog('IN',${pid})">Receive</button>` : '<button class="btn primary">Close</button>'}</div></form>`;
+    ${s ? `<div style="margin-bottom:16px">${gauge(s)}<div class="small muted" style="margin-top:6px">${fmt(s.total)} ${esc(UNIT(p.unit))} në stok${ALT(s.total, p) ? ` (${ALT(s.total, p)})` : ''}${p.min_stock ? `, minimumi ${fmt(p.min_stock)}` : ''}</div></div>` : ''}
+    ${rows.length ? `<div class="panel tablewrap"><table><thead><tr><th>Lokacioni</th><th>Loti / nr. i shkrirjes</th><th class="num">Sasia</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.location)}</td><td>${esc(r.lot) || '<span class="muted">Pa lot</span>'}</td><td class="num"><span class="qty">${fmt(r.qty)}</span><span class="unit">${esc(UNIT(p.unit))}</span>${altLine(r.qty, p)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Pa stok.</div>'}
+    <div class="actions"><button type="button" class="btn" onclick="$('#dlg').close();openProduct(${pid})">Analiza</button><button type="button" class="btn" onclick="showHistory(${pid})">Historiku</button>
+      ${canMove() ? `<button type="button" class="btn" onclick="$('#dlg').close();movementDialog('OUT',${pid})">Dalje</button><button type="button" class="btn primary" onclick="$('#dlg').close();movementDialog('IN',${pid})">Pranim</button>` : '<button class="btn primary">Mbyll</button>'}</div></form>`;
   dlg.showModal();
 }
 
 /* ---------- movement dialog ---------- */
-const MOVE_TITLE = { IN:'Receive stock', OUT:'Issue stock', TRANSFER:'Transfer between locations', ADJUST:'Stocktake count' };
+const MOVE_TITLE = { IN:'Pranim i stokut', OUT:'Dalje e stokut', TRANSFER:'Transferim mes lokacioneve', ADJUST:'Inventarizim' };
 const productLabel = p => `${p.sku} — ${p.name}`;
 function movementDialog(kind, presetPid) {
   const active = state.products.filter(p => p.active);
@@ -645,36 +665,36 @@ function movementDialog(kind, presetPid) {
   const preset = active.find(p => p.id === presetPid);
   const { form } = openDialog(`<form>
     <h2>${MOVE_TITLE[kind]}</h2>
-    <div class="field"><label>Product</label><div class="inputrow"><input name="product" list="plist" required autocomplete="off" placeholder="Type SKU or name" value="${preset ? esc(productLabel(preset)) : ''}"><button type="button" class="btn" data-scan>${icon('scan')}Scan</button></div>
+    <div class="field"><label>Artikulli</label><div class="inputrow"><input name="product" list="plist" required autocomplete="off" placeholder="Shkruani shifrën ose emërtimin" value="${preset ? esc(productLabel(preset)) : ''}"><button type="button" class="btn" data-scan>${icon('scan')}Skano</button></div>
       <datalist id="plist">${active.map(p => `<option value="${esc(productLabel(p))}">`).join('')}</datalist></div>
     <div class="two">
-      <div class="field"><label>${kind === 'TRANSFER' ? 'From location' : 'Location'}</label><select name="location_id">${locOpts()}</select></div>
-      ${kind === 'TRANSFER' ? `<div class="field"><label>To location</label><select name="to_location_id">${locOpts(state.locations.filter(l => l.active)[1]?.id)}</select></div>` : '<div></div>'}
+      <div class="field"><label>${kind === 'TRANSFER' ? 'Nga lokacioni' : 'Lokacioni'}</label><select name="location_id">${locOpts()}</select></div>
+      ${kind === 'TRANSFER' ? `<div class="field"><label>Te lokacioni</label><select name="to_location_id">${locOpts(state.locations.filter(l => l.active)[1]?.id)}</select></div>` : '<div></div>'}
     </div>
     <div class="two">
-      <div class="field"><label>${kind === 'ADJUST' ? 'Counted quantity' : 'Quantity'}</label><input name="${kind === 'ADJUST' ? 'counted' : 'qty'}" type="number" step="any" min="0" inputmode="decimal" required></div>
-      <div class="field"><label>Lot / heat number${kind === 'IN' ? '' : ' (optional)'}</label><input name="lot" list="lots" autocomplete="off"><datalist id="lots"></datalist></div>
+      <div class="field"><label>${kind === 'ADJUST' ? 'Sasia e numëruar' : 'Sasia'}</label><input name="${kind === 'ADJUST' ? 'counted' : 'qty'}" type="number" step="any" min="0" inputmode="decimal" required></div>
+      <div class="field"><label>Loti / numri i shkrirjes${kind === 'IN' ? '' : ' (opsional)'}</label><input name="lot" list="lots" autocomplete="off"><datalist id="lots"></datalist></div>
     </div>
     <div class="hint" id="avail"></div>
     <div class="two">
-      <div class="field"><label>Reference (order, work order, delivery note)</label><input name="reference"></div>
-      <div class="field"><label>Note</label><input name="note"></div>
+      <div class="field"><label>Referenca (porosia, urdhri i punës, fletëdërgesa)</label><input name="reference"></div>
+      <div class="field"><label>Shënimi</label><input name="note"></div>
     </div>
-    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">${{ IN: 'Receive', OUT: 'Issue', TRANSFER: 'Transfer', ADJUST: 'Save count' }[kind]}</button></div>
+    <div class="actions"><button type="button" class="btn" data-cancel>Anulo</button><button class="btn primary">${{ IN: 'Prano', OUT: 'Nxirr', TRANSFER: 'Transfero', ADJUST: 'Ruaj numërimin' }[kind]}</button></div>
   </form>`, async (v, f) => {
     const p = findProduct(v.product);
-    if (!p) throw new Error('Pick a product from the list');
+    if (!p) throw new Error('Zgjidhni një artikull nga lista');
     const body = { kind, product_id: p.id, location_id: +v.location_id, lot: v.lot, reference: v.reference, note: v.note };
     if (kind === 'ADJUST') body.counted = v.counted; else body.qty = v.qty;
     if (kind === 'TRANSFER') body.to_location_id = +v.to_location_id;
     const r = await api('/movements', { method: 'POST', body });
-    toast(r.message || 'Saved');
+    toast(r.message || 'U ruajt');
   });
   const hint = async () => {
     const p = findProduct(form.product.value);
     if (!p) { $('#avail').textContent = ''; return; }
     const r = await api(`/availability?product_id=${p.id}&location_id=${form.location_id.value}&lot=${encodeURIComponent(form.lot.value)}`);
-    $('#avail').innerHTML = `In this location${form.lot.value ? ' and lot' : ''} now: <b>${fmt(r.qty)} ${esc(p.unit)}</b>`;
+    $('#avail').innerHTML = `Në këtë lokacion${form.lot.value ? ' dhe lot' : ''} tani: <b>${fmt(r.qty)} ${esc(UNIT(p.unit))}</b>`;
   };
   const fillLots = async () => {
     const p = findProduct(form.product.value);
@@ -683,7 +703,7 @@ function movementDialog(kind, presetPid) {
   const setStep = () => {
     const p = findProduct(form.product.value), q = form.qty || form.counted;
     q.step = p && p.unit === 'pcs' ? '1' : 'any';
-    q.placeholder = p ? (p.unit === 'pcs' ? 'Whole pieces, e.g. 250' : `In ${p.unit}, e.g. 12.5`) : '';
+    q.placeholder = p ? (p.unit === 'pcs' ? 'Copë të plota, p.sh. 250' : `Në ${UNIT(p.unit)}, p.sh. 12,5`) : '';
   };
   ['input', 'change'].forEach(ev => form.addEventListener(ev, e => { if (e.target.name === 'product') { fillLots(); setStep(); } hint(); }));
   setStep();
@@ -696,20 +716,20 @@ function findProduct(val) {
 }
 
 /* ---------- insights ---------- */
-const INS = { order_now: ['out', 'Order now'], watch: ['low', 'Order soon'], ok: ['ok', 'Enough'], no_demand: ['off', 'No demand'] };
+const INS = { order_now: ['out', 'Porosit tani'], watch: ['low', 'Porosit së shpejti'], ok: ['ok', 'Mjafton'], no_demand: ['off', 'Pa kërkesë'] };
 function spark(v) {
   const W = 96, H = 26, max = Math.max(...v, 1), step = W / (v.length - 1 || 1);
   const pts = v.map((y, i) => `${(i * step).toFixed(1)},${(H - 2 - (y / max) * (H - 4)).toFixed(1)}`).join(' ');
   return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polygon points="0,${H} ${pts} ${W},${H}" fill="#e3e8f1"/><polyline points="${pts}" fill="none" stroke="var(--navy)" stroke-width="1.5"/></svg>`;
 }
 const rate = n => !n ? '—' : n >= 10 ? fmt(Math.round(n)) : fmt(Math.round(n * 10) / 10);
-const shortDate = s => new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-const days = n => n == null ? '—' : n === 0 ? 'None left' : n === 1 ? '1 day' : `${fmt(n)} days`;
+const shortDate = s => sqDate(s, 'dm');
+const days = n => n == null ? '—' : n === 0 ? 'Asgjë e mbetur' : n === 1 ? '1 ditë' : `${fmt(n)} ditë`;
 function insightsHead(sub, csvHref, showLead) {
-  return phead(state.insView === 'value' ? 'Value and turnover' : 'Reorder and materials', sub, `<a class="btn" href="${csvHref}">${icon('download')}Download CSV</a>`) + `
+  return phead(state.insView === 'value' ? 'Vlera dhe qarkullimi' : 'Riporositja dhe lënda e parë', sub, `<a class="btn" href="${csvHref}">${icon('download')}Shkarko CSV</a>`) + `
     <div class="filters">
-      ${showLead ? `<label class="check">Supplier lead time <input type="number" id="lead" min="1" max="365" value="${state.lead}" style="width:72px"> days</label>` : ''}
-      <label class="check">History <select id="win">${[30, 90, 180, 365].map(w => `<option value="${w}" ${w === state.window ? 'selected' : ''}>${w} days</option>`).join('')}</select></label>
+      ${showLead ? `<label class="check">Koha e furnizimit <input type="number" id="lead" min="1" max="365" value="${state.lead}" style="width:72px"> ditë</label>` : ''}
+      <label class="check">Historiku <select id="win">${[30, 90, 180, 365].map(w => `<option value="${w}" ${w === state.window ? 'selected' : ''}>${w} ditë</option>`).join('')}</select></label>
     </div>`;
 }
 function bindInsightsHead() {
@@ -723,48 +743,48 @@ async function viewInsights() {
   const d = await api('/insights?' + q), s = d.summary;
   const action = d.items.filter(i => i.status === 'order_now' || i.status === 'watch');
   const list = state.insAll || !action.length ? d.items : action;
-  $('#view').innerHTML = insightsHead(`Based on issues over the last ${d.params.window} days`, `/api/export/insights.csv?${q}`, true) + `
-    ${s.limited_history ? `<div class="note">${s.limited_history === s.products ? 'All' : s.limited_history} of ${s.products} products have less than 4 weeks of history. The numbers get more reliable as issues are recorded.</div>` : ''}
+  $('#view').innerHTML = insightsHead(`Bazuar në daljet e ${d.params.window} ditëve të fundit`, `/api/export/insights.csv?${q}`, true) + `
+    ${s.limited_history ? `<div class="note">${s.limited_history === s.products ? 'Të gjithë' : s.limited_history} nga ${s.products} artikuj kanë më pak se 4 javë historik. Numrat bëhen më të besueshëm sa më shumë dalje të regjistrohen.</div>` : ''}
     <div class="strip" style="--n:4">
-      <div class="${s.order_now ? 'bad' : ''}"><div class="v">${s.order_now}</div><div class="l">To order now${s.watch ? `, ${s.watch} soon` : ''}</div></div>
-      <div><div class="v">${s.median_cover_days == null ? '—' : days(s.median_cover_days)}</div><div class="l">Typical stock cover</div></div>
-      <div class="${s.slow_count ? 'warn' : ''}"><div class="v">${money(s.slow_value)}</div><div class="l">In slow stock (${s.slow_count} ${s.slow_count === 1 ? 'product' : 'products'})</div></div>
-      <div class="${s.anomalies ? 'warn' : ''}"><div class="v">${s.anomalies}</div><div class="l">Unusual movements</div></div>
+      <div class="${s.order_now ? 'bad' : ''}"><div class="v">${s.order_now}</div><div class="l">Për t'u porositur tani${s.watch ? `, ${s.watch} së shpejti` : ''}</div></div>
+      <div><div class="v">${s.median_cover_days == null ? '—' : days(s.median_cover_days)}</div><div class="l">Mbulimi tipik i stokut</div></div>
+      <div class="${s.slow_count ? 'warn' : ''}"><div class="v">${money(s.slow_value)}</div><div class="l">Në stok të ngadaltë (${s.slow_count} artikuj)</div></div>
+      <div class="${s.anomalies ? 'warn' : ''}"><div class="v">${s.anomalies}</div><div class="l">Lëvizje të pazakonta</div></div>
     </div>
-    <section class="panel" style="margin-bottom:16px"><div class="ph"><h2>Reorder advice</h2>
-      ${action.length ? `<div class="seg" role="group" aria-label="Show"><button data-all="0" class="${!state.insAll ? 'on' : ''}">Needs action (${action.length})</button><button data-all="1" class="${state.insAll ? 'on' : ''}">All products</button></div>` : ''}</div>
-      <div class="tablewrap"><table class="cards"><thead><tr><th>Product</th><th>Advice</th><th class="num">On hand</th><th class="num">Used per day</th><th class="num">Lasts</th><th>Last 30 days</th><th class="num">Reorder at</th><th class="num">Order</th><th title="ABC: share of usage value. XYZ: how steady the demand is.">Class</th></tr></thead><tbody>
+    <section class="panel" style="margin-bottom:16px"><div class="ph"><h2>Këshilla për riporositje</h2>
+      ${action.length ? `<div class="seg" role="group" aria-label="Shfaq"><button data-all="0" class="${!state.insAll ? 'on' : ''}">Kërkojnë veprim (${action.length})</button><button data-all="1" class="${state.insAll ? 'on' : ''}">Të gjithë artikujt</button></div>` : ''}</div>
+      <div class="tablewrap"><table class="cards"><thead><tr><th>Artikulli</th><th>Këshilla</th><th class="num">Në stok</th><th class="num">Përdorim në ditë</th><th class="num">Mjafton për</th><th>30 ditët e fundit</th><th class="num">Riporosit te</th><th class="num">Porosit</th><th title="ABC: pjesa në vlerën e përdorimit. XYZ: sa e qëndrueshme është kërkesa.">Klasa</th></tr></thead><tbody>
       ${list.map(i => `<tr><td><div class="sku">${esc(i.sku)}</div><div class="sub">${esc(i.name)}</div></td>
-        <td data-label="Advice"><span class="pill ${INS[i.status][0]}">${INS[i.status][1]}</span></td>
-        <td data-label="On hand" class="num"><span class="qty">${fmt(i.on_hand)}</span><span class="unit">${esc(i.unit)}</span></td>
-        <td data-label="Used per day" class="num">${rate(i.avg_daily)}${i.trend_pct ? `<div class="sub" title="Last 4 weeks compared with the 4 weeks before">${i.trend_pct > 0 ? '▲' : '▼'} ${Math.abs(i.trend_pct)}%</div>` : ''}</td>
-        <td data-label="Lasts" class="num">${days(i.cover_days)}${i.stockout_date ? `<div class="sub">until ${shortDate(i.stockout_date)}</div>` : ''}</td>
-        <td data-label="Last 30 days">${spark(i.spark)}</td>
-        <td data-label="Reorder at" class="num">${i.avg_daily ? fmt(i.reorder_point) : '—'}</td>
-        <td data-label="Order" class="num">${i.order_qty ? `<span class="qty">${fmt(i.order_qty)}</span><span class="unit">${esc(i.unit)}</span>` : '—'}</td>
-        <td data-label="Class">${i.abc || i.xyz ? `<span class="tag">${i.abc || '–'}${i.xyz || ''}</span>` : ''}${i.limited ? ' <span class="tag" title="Less than 4 weeks of history">new</span>' : ''}</td></tr>`).join('')}
+        <td data-label="Këshilla"><span class="pill ${INS[i.status][0]}">${INS[i.status][1]}</span></td>
+        <td data-label="Në stok" class="num"><span class="qty">${fmt(i.on_hand)}</span><span class="unit">${esc(UNIT(i.unit))}</span></td>
+        <td data-label="Përdorim në ditë" class="num">${rate(i.avg_daily)}${i.trend_pct ? `<div class="sub" title="4 javët e fundit krahasuar me 4 javët paraprake">${i.trend_pct > 0 ? '▲' : '▼'} ${Math.abs(i.trend_pct)}%</div>` : ''}</td>
+        <td data-label="Mjafton për" class="num">${days(i.cover_days)}${i.stockout_date ? `<div class="sub">until ${shortDate(i.stockout_date)}</div>` : ''}</td>
+        <td data-label="30 ditët e fundit">${spark(i.spark)}</td>
+        <td data-label="Riporosit te" class="num">${i.avg_daily ? fmt(i.reorder_point) : '—'}</td>
+        <td data-label="Porosit" class="num">${i.order_qty ? `<span class="qty">${fmt(i.order_qty)}</span><span class="unit">${esc(UNIT(i.unit))}</span>` : '—'}</td>
+        <td data-label="Klasa">${i.abc || i.xyz ? `<span class="tag">${i.abc || '–'}${i.xyz || ''}</span>` : ''}${i.limited ? ' <span class="tag" title="Më pak se 4 javë historik">i ri</span>' : ''}</td></tr>`).join('')}
       </tbody></table></div></section>
     ${materialsPanel(d)}
     <div class="cols">
-      <section class="panel"><div class="ph"><h2>Slow-moving stock</h2></div>
-        ${d.slow.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Product</th><th class="num">On hand</th><th>Last issued</th><th class="num">Value</th></tr></thead><tbody>${d.slow.map(r => `
-          <tr><td><div class="sku">${esc(r.sku)}</div><div class="sub">${esc(r.name)}</div></td><td data-label="On hand" class="num"><span class="qty">${fmt(r.on_hand)}</span><span class="unit">${esc(r.unit)}</span></td>
-          <td data-label="Last issued" class="muted">${r.last_issue ? shortDate(r.last_issue) : 'Never'}</td><td data-label="Value" class="num">${r.value_on_hand ? money(r.value_on_hand) : '—'}</td></tr>`).join('')}</tbody></table></div>`
-        : `<div class="empty"><b>No slow stock</b>Every product in stock was issued in the last ${d.params.slow_days} days.</div>`}</section>
-      <section class="panel"><div class="ph"><h2>Unusual movements</h2>${d.anomalies.length > 6 && !state.anomAll ? `<button class="link" data-anom>Show all ${d.anomalies.length}</button>` : ''}</div>
+      <section class="panel"><div class="ph"><h2>Stok me lëvizje të ngadaltë</h2></div>
+        ${d.slow.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Artikulli</th><th class="num">Në stok</th><th>Dalja e fundit</th><th class="num">Vlera</th></tr></thead><tbody>${d.slow.map(r => `
+          <tr><td><div class="sku">${esc(r.sku)}</div><div class="sub">${esc(r.name)}</div></td><td data-label="Në stok" class="num"><span class="qty">${fmt(r.on_hand)}</span><span class="unit">${esc(UNIT(r.unit))}</span></td>
+          <td data-label="Dalja e fundit" class="muted">${r.last_issue ? shortDate(r.last_issue) : 'Asnjëherë'}</td><td data-label="Vlera" class="num">${r.value_on_hand ? money(r.value_on_hand) : '—'}</td></tr>`).join('')}</tbody></table></div>`
+        : `<div class="empty"><b>Pa stok të ngadaltë</b>Çdo artikull në stok ka pasur dalje në ${d.params.slow_days} ditët e fundit.</div>`}</section>
+      <section class="panel"><div class="ph"><h2>Lëvizje të pazakonta</h2>${d.anomalies.length > 6 && !state.anomAll ? `<button class="link" data-anom>Shfaq të gjitha ${d.anomalies.length}</button>` : ''}</div>
         ${d.anomalies.length ? `<ul class="feed">${d.anomalies.slice(0, state.anomAll ? 99 : 6).map(a => `<li><span class="k ${a.kind === 'ADJUST' ? 'adj' : 'outq'}">!</span>
           <div><div class="sku">${esc(a.sku)}</div><div class="t">${esc(a.reason)} · ${shortDate(a.date)}${a.operator ? ` · ${esc(a.operator)}` : ''}</div></div>
-          <div class="num"><span class="qty ${a.kind === 'ADJUST' ? 'adj' : 'outq'}">${signed(a.kind === 'ADJUST' ? a.qty : -a.qty)}</span><span class="unit">${esc(a.unit)}</span></div></li>`).join('')}</ul>`
-        : '<div class="empty"><b>Nothing unusual</b>Very large issues and big stocktake losses show up here.</div>'}</section>
+          <div class="num"><span class="qty ${a.kind === 'ADJUST' ? 'adj' : 'outq'}">${signed(a.kind === 'ADJUST' ? a.qty : -a.qty)}</span><span class="unit">${esc(UNIT(a.unit))}</span></div></li>`).join('')}</ul>`
+        : '<div class="empty"><b>Asgjë e pazakontë</b>Daljet shumë të mëdha dhe humbjet e mëdha në inventarizim shfaqen këtu.</div>'}</section>
     </div>
-    <details class="how"><summary>How these numbers are worked out</summary><ul>
-      <li><b>Used per day</b> is the average issued per day, counting days with no issues. Reversed issues, transfers and stocktakes don't count as use. The arrow compares the last 4 weeks with the 4 weeks before.</li>
-      <li><b>Lasts</b> is stock on hand divided by use per day.</li>
-      <li><b>Reorder at</b> is the use during the supplier lead time (${d.params.lead_days} days), plus safety stock for ${d.params.service_level}% of lead times without running out, based on how much daily use varies.</li>
-      <li><b>Order</b> brings stock back up to the reorder point plus ${d.params.order_cycle_days} days of use, rounded up.</li>
-      <li><b>Class</b>: A products make up the first 80% of usage value, B the next 15%, C the rest. X means steady weekly demand, Y variable, Z irregular.</li>
-      <li><b>Raw material needed</b>: <i>needed now</i> is the material for the finished goods the advice says to make now. <i>Needed per 30 days</i> comes from the finished-goods forecast times the amount per 1,000. A material is marked to order when its stock doesn't cover what's needed now plus use during the lead time.</li>
-      <li><b>Slow-moving</b> means in stock but not issued for ${d.params.slow_days} days. <b>Unusual movements</b> are issues far above that product's typical size, and stocktakes that removed 2% or more of the stock.</li>
+    <details class="how"><summary>Si llogariten këto numra</summary><ul>
+      <li><b>Përdorim në ditë</b> është mesatarja e daljeve në ditë, duke llogaritur edhe ditët pa dalje. Daljet e stornuara, transferimet dhe inventarizimet nuk llogariten si përdorim. Shigjeta krahason 4 javët e fundit me 4 javët paraprake.</li>
+      <li><b>Mjafton për</b> është stoku në dispozicion i pjesëtuar me përdorimin në ditë.</li>
+      <li><b>Riporosit te</b> është përdorimi gjatë kohës së furnizimit (${d.params.lead_days} ditë), plus stoku i sigurisë që ${d.params.service_level}% e kohëve të furnizimit të kalojnë pa mbetur pa stok, bazuar në sa ndryshon përdorimi ditor.</li>
+      <li><b>Porosit</b> e kthen stokun te pika e riporositjes plus ${d.params.order_cycle_days} ditë përdorim, e rrumbullakuar lart.</li>
+      <li><b>Klasa</b>: artikujt A përbëjnë 80% e parë të vlerës së përdorimit, B 15% e radhës, C pjesën tjetër. X do të thotë kërkesë javore e qëndrueshme, Y e ndryshueshme, Z e parregullt.</li>
+      <li><b>Lënda e parë e nevojshme</b>: <i>nevojitet tani</i> është lënda për produktet e gatshme që këshilla thotë t'i prodhoni tani. <i>Nevojitet për 30 ditë</i> vjen nga parashikimi i produkteve të gatshme herë sasia për 1.000. Lënda shënohet për porosi kur stoku i saj nuk mbulon nevojën e tanishme plus përdorimin gjatë kohës së furnizimit.</li>
+      <li><b>Me lëvizje të ngadaltë</b> do të thotë në stok, por pa dalje për ${d.params.slow_days} ditë. <b>Lëvizje të pazakonta</b> janë daljet shumë mbi madhësinë e zakonshme të atij artikulli dhe inventarizimet që hoqën 2% ose më shumë të stokut.</li>
     </ul></details>`;
   bindInsightsHead();
   $$('[data-mat]').forEach(b => b.onclick = () => materialDialog(d.materials.find(m => m.id === +b.dataset.mat)));
@@ -773,7 +793,7 @@ async function viewInsights() {
 }
 
 const CAT_COLORS = ['#263556', '#5b7bb6', '#d9a21b', '#2a8f82', '#8a6bb0'], OTHER_COLOR = '#b4bec8';
-const moneyShort = n => { const a = Math.abs(n), t = a >= 1e6 ? (a / 1e6).toFixed(1) + 'M' : a >= 1e4 ? Math.round(a / 1e3) + 'k' : a >= 1e3 ? (a / 1e3).toFixed(1) + 'k' : String(Math.round(a)); return (n < 0 ? '−€' : '€') + t; };
+const moneyShort = n => { const a = Math.abs(n), t = a >= 1e6 ? fmt(Math.round(a / 1e5) / 10) + ' mln' : a >= 1e4 ? fmt(Math.round(a / 1e3)) + 'k' : a >= 1e3 ? fmt(Math.round(a / 100) / 10) + 'k' : fmt(Math.round(a)); return (n < 0 ? '−' : '') + t + ' €'; };
 const turns = t => t == null ? '—' : `${fmt(t)}×`;
 async function viewValue() {
   const d = await api('/insights/value?window=' + state.window), s = d.summary;
@@ -781,34 +801,34 @@ async function viewValue() {
   const color = c => { const i = top.indexOf(c); return i >= 0 ? CAT_COLORS[i] : OTHER_COLOR; };
   const list = state.valAll ? d.products : d.products.slice(0, 12);
   const change = s.change_pct;
-  $('#view').innerHTML = insightsHead(`Stock valued at today's unit costs. Turnover over the last ${d.params.window} days.`, `/api/export/turnover.csv?window=${state.window}`, false) + `
-    ${s.missing_cost ? `<div class="note">${s.missing_cost} ${s.missing_cost === 1 ? 'product has' : 'products have'} no unit cost, so ${s.missing_cost === 1 ? 'it is' : 'they are'} left out of these numbers. Add costs under Products.</div>` : ''}
+  $('#view').innerHTML = insightsHead(`Stoku i vlerësuar me kostot e sotme për njësi. Qarkullimi në ${d.params.window} ditët e fundit.`, `/api/export/turnover.csv?window=${state.window}`, false) + `
+    ${s.missing_cost ? `<div class="note">${s.missing_cost} artikuj nuk kanë kosto për njësi, prandaj nuk përfshihen në këta numra. Shtoni kostot te Artikujt.</div>` : ''}
     <div class="strip" style="--n:4">
-      <div><div class="v">${money(s.value_now)}</div><div class="l">Stock value now</div></div>
-      <div><div class="v">${change == null ? '—' : `${change > 0 ? '+' : change < 0 ? '−' : ''}${fmt(Math.abs(change))}%`}</div><div class="l">Change since 3 months ago</div></div>
-      <div><div class="v">${turns(s.turnover)}</div><div class="l">Turnover per year</div></div>
-      <div><div class="v">${s.days == null ? '—' : days(s.days)}</div><div class="l">Days of inventory</div></div>
+      <div><div class="v">${money(s.value_now)}</div><div class="l">Vlera e stokut tani</div></div>
+      <div><div class="v">${change == null ? '—' : `${change > 0 ? '+' : change < 0 ? '−' : ''}${fmt(Math.abs(change))}%`}</div><div class="l">Ndryshimi nga 3 muaj më parë</div></div>
+      <div><div class="v">${turns(s.turnover)}</div><div class="l">Qarkullimi në vit</div></div>
+      <div><div class="v">${s.days == null ? '—' : days(s.days)}</div><div class="l">Ditë inventari</div></div>
     </div>
-    <section class="panel" style="margin-bottom:16px"><div class="ph"><h2>Stock value by month</h2></div><div class="pb" id="valchart"></div></section>
+    <section class="panel" style="margin-bottom:16px"><div class="ph"><h2>Vlera e stokut sipas muajve</h2></div><div class="pb" id="valchart"></div></section>
     <div class="cols">
-      <section class="panel"><div class="ph"><h2>By category</h2></div>
-        ${d.categories.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Category</th><th class="num">Average value</th><th class="num">Share</th><th class="num">Turnover</th><th class="num">Days</th></tr></thead><tbody>
+      <section class="panel"><div class="ph"><h2>Sipas kategorisë</h2></div>
+        ${d.categories.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Kategoria</th><th class="num">Vlera mesatare</th><th class="num">Pjesa</th><th class="num">Qarkullimi</th><th class="num">Ditë</th></tr></thead><tbody>
         ${d.categories.map(c => `<tr><td><span class="strong"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:8px;background:${color(c.category)}"></i>${esc(c.category)}</span><div class="sub">${c.products} ${c.products === 1 ? 'product' : 'products'}</div></td>
-          <td data-label="Average value" class="num">${money(c.avg_value)}</td><td data-label="Share" class="num hp">${fmt(c.share)}%</td>
-          <td data-label="Turnover" class="num">${turns(c.turnover)}</td><td data-label="Days" class="num hp">${c.days == null ? '—' : fmt(c.days)}</td></tr>`).join('')}
-        </tbody></table></div>` : '<div class="empty"><b>No stock value yet</b>Add unit costs and receive stock to see this.</div>'}</section>
-      <section class="panel"><div class="ph"><h2>Where the money sits</h2>${d.products.length > 12 ? `<button class="link" data-valall>${state.valAll ? 'Show top 12' : `Show all ${d.products.length}`}</button>` : ''}</div>
-        ${list.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Product</th><th class="num">Average value</th><th class="num">Turnover</th><th class="num">Days</th></tr></thead><tbody>
+          <td data-label="Vlera mesatare" class="num">${money(c.avg_value)}</td><td data-label="Pjesa" class="num hp">${fmt(c.share)}%</td>
+          <td data-label="Qarkullimi" class="num">${turns(c.turnover)}</td><td data-label="Ditë" class="num hp">${c.days == null ? '—' : fmt(c.days)}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="empty"><b>Ende pa vlerë stoku</b>Shtoni kostot për njësi dhe pranoni stok për ta parë këtë.</div>'}</section>
+      <section class="panel"><div class="ph"><h2>Ku janë paratë</h2>${d.products.length > 12 ? `<button class="link" data-valall>${state.valAll ? 'Shfaq 12 të parët' : `Shfaq të gjithë ${d.products.length}`}</button>` : ''}</div>
+        ${list.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Artikulli</th><th class="num">Vlera mesatare</th><th class="num">Qarkullimi</th><th class="num">Ditë</th></tr></thead><tbody>
         ${list.map(r => `<tr><td><div class="sku">${esc(r.sku)}</div><div class="sub">${esc(r.name)}</div></td>
-          <td data-label="Average value" class="num">${money(r.avg_value)}<div class="sub">now ${money(r.value_now)}</div></td>
-          <td data-label="Turnover" class="num">${turns(r.turnover)}</td><td data-label="Days" class="num hp">${r.days == null ? 'Not used' : fmt(r.days)}</td></tr>`).join('')}
-        </tbody></table></div>` : '<div class="empty"><b>No products to show</b></div>'}</section>
+          <td data-label="Vlera mesatare" class="num">${money(r.avg_value)}<div class="sub">tani ${money(r.value_now)}</div></td>
+          <td data-label="Qarkullimi" class="num">${turns(r.turnover)}</td><td data-label="Ditë" class="num hp">${r.days == null ? 'Pa përdorim' : fmt(r.days)}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="empty"><b>Nuk ka artikuj për të shfaqur</b></div>'}</section>
     </div>
-    <details class="how"><summary>How these numbers are worked out</summary><ul>
-      <li><b>Stock value</b> is quantity on hand times today's unit cost, at the end of each month. Past months use today's costs too, so the chart shows changes in quantity, not in price.</li>
-      <li><b>Average value</b> is the average of the stock value at the end of each day in the last ${d.params.window} days.</li>
-      <li><b>Turnover</b> is the value issued in that period divided by the average value, scaled to a year. 6× means the stock is used up and replaced about every 2 months. Higher is better: less cash tied up.</li>
-      <li><b>Days of inventory</b> is how many days the average stock would last at the period's rate of use.</li>
+    <details class="how"><summary>Si llogariten këto numra</summary><ul>
+      <li><b>Vlera e stokut</b> është sasia në stok herë kostoja e sotme për njësi, në fund të çdo muaji. Edhe muajt e kaluar përdorin kostot e sotme, prandaj grafiku tregon ndryshime në sasi, jo në çmim.</li>
+      <li><b>Vlera mesatare</b> është mesatarja e vlerës së stokut në fund të çdo dite në ${d.params.window} ditët e fundit.</li>
+      <li><b>Qarkullimi</b> është vlera e dalë në atë periudhë e pjesëtuar me vlerën mesatare, e shtrirë në një vit. 6× do të thotë se stoku harxhohet dhe zëvendësohet afërsisht çdo 2 muaj. Më i lartë është më mirë: më pak para të bllokuara.</li>
+      <li><b>Ditë inventari</b> tregon sa ditë do të mjaftonte stoku mesatar me ritmin e përdorimit të periudhës.</li>
     </ul></details>`;
   drawValue($('#valchart'), d.months, d.category_order, color, hasOther);
   bindInsightsHead();
@@ -816,7 +836,7 @@ async function viewValue() {
 }
 function drawValue(el, months, cats, color, hasOther) {
   const first = months.findIndex(m => m.total > 0);
-  if (first < 0) { el.innerHTML = '<div class="empty" style="padding:20px"><b>No stock value yet</b>Add unit costs and receive stock to see this.</div>'; return; }
+  if (first < 0) { el.innerHTML = '<div class="empty" style="padding:20px"><b>Ende pa vlerë stoku</b>Shtoni kostot për njësi dhe pranoni stok për ta parë këtë.</div>'; return; }
   const ms = months.slice(Math.max(0, Math.min(first, months.length - 3)));
   const keys = cats.slice(0, 5).concat(hasOther ? ['__other'] : []);
   const val = (m, k) => k === '__other' ? Object.entries(m.by_category).filter(([c]) => !cats.slice(0, 5).includes(c)).reduce((a, [, v]) => a + v, 0) : (m.by_category[k] || 0);
@@ -831,86 +851,87 @@ function drawValue(el, months, cats, color, hasOther) {
       const h = val(m, k) / max * plot; if (h <= 0) continue;
       y -= h; segs += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${k === '__other' ? OTHER_COLOR : color(k)}"/>`;
     }
-    const lbl = new Date(m.date).toLocaleDateString('en-GB', { month: 'short' }) + (i === ms.length - 1 ? ' (now)' : '');
+    const lbl = sqDate(m.date, 'm') + (i === ms.length - 1 ? ' (tani)' : '');
     const show = W > 520 || i % 2 === (ms.length - 1) % 2;
     return `<g><title>${lbl}: ${money(m.total)}</title>${segs}${show ? `<text x="${x + w / 2}" y="${H - 6}" text-anchor="middle" font-size="11" fill="var(--faint)">${esc(lbl)}</text>` : ''}</g>`;
   }).join('');
-  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Stock value by month and category">${ticks}${bars}</svg>
-    <div class="legend">${keys.map(k => `<span><i style="background:${k === '__other' ? OTHER_COLOR : color(k)}"></i>${k === '__other' ? 'Other' : esc(k)}</span>`).join('')}</div>`;
+  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Vlera e stokut sipas muajit dhe kategorisë">${ticks}${bars}</svg>
+    <div class="legend">${keys.map(k => `<span><i style="background:${k === '__other' ? OTHER_COLOR : color(k)}"></i>${k === '__other' ? 'Të tjera' : esc(k)}</span>`).join('')}</div>`;
 }
 
 function materialsPanel(d) {
   const ms = d.materials;
-  const head = `<div class="ph"><h2>Raw material needed</h2><span class="muted small">for the finished goods made from it</span></div>`;
-  if (!ms.length) return `<section class="panel" style="margin-bottom:16px">${head}<div class="empty"><b>No products are linked to a raw material yet</b>
-    ${isAdmin() ? 'Open Products, edit a finished product, and fill in Made from and the amount per 1,000.' : 'An administrator can link products to the wire rod they are made from.'}</div></section>`;
+  const head = `<div class="ph"><h2>Lënda e parë e nevojshme</h2><span class="muted small">për produktet e gatshme që prodhohen prej saj</span></div>`;
+  if (!ms.length) return `<section class="panel" style="margin-bottom:16px">${head}<div class="empty"><b>Ende asnjë artikull nuk është lidhur me lëndë të parë</b>
+    ${isAdmin() ? 'Hapni Artikujt, ndryshoni një produkt të gatshëm dhe plotësoni Prodhohet nga dhe sasinë për 1.000.' : 'Administratori mund t\'i lidhë artikujt me telin nga i cili prodhohen.'}</div></section>`;
   const q = n => fmt(Math.round(n));
   return `<section class="panel" style="margin-bottom:16px">${head}
-    <div class="tablewrap"><table class="cards"><thead><tr><th>Material</th><th>Advice</th><th class="num">On hand</th><th class="num">Needed now</th><th class="num">Needed per 30 days</th><th class="num">Lasts</th><th class="num">Order</th><th></th></tr></thead><tbody>
+    <div class="tablewrap"><table class="cards"><thead><tr><th>Lënda</th><th>Këshilla</th><th class="num">Në stok</th><th class="num">Nevojitet tani</th><th class="num">Nevojitet për 30 ditë</th><th class="num">Mjafton për</th><th class="num">Porosit</th><th></th></tr></thead><tbody>
     ${ms.map(m => `<tr><td><div class="sku">${esc(m.sku)}</div><div class="sub">${esc(m.name)}</div></td>
-      <td data-label="Advice"><span class="pill ${INS[m.status][0]}">${INS[m.status][1]}</span></td>
-      <td data-label="On hand" class="num"><span class="qty">${q(m.on_hand)}</span><span class="unit">${esc(m.unit)}</span></td>
-      <td data-label="Needed now" class="num" title="To make what the finished goods are short of">${m.need_now ? `${q(m.need_now)}<span class="unit">${esc(m.unit)}</span>` : '—'}</td>
-      <td data-label="Needed per 30 days" class="num">${q(m.need_30d)}<span class="unit">${esc(m.unit)}</span></td>
-      <td data-label="Lasts" class="num">${days(m.cover_days)}</td>
-      <td data-label="Order" class="num">${m.order_qty ? `<span class="qty">${q(m.order_qty)}</span><span class="unit">${esc(m.unit)}</span>` : '—'}</td>
+      <td data-label="Këshilla"><span class="pill ${INS[m.status][0]}">${INS[m.status][1]}</span></td>
+      <td data-label="Në stok" class="num"><span class="qty">${q(m.on_hand)}</span><span class="unit">${esc(UNIT(m.unit))}</span></td>
+      <td data-label="Nevojitet tani" class="num" title="Për të prodhuar atë që u mungon produkteve të gatshme">${m.need_now ? `${q(m.need_now)}<span class="unit">${esc(UNIT(m.unit))}</span>` : '—'}</td>
+      <td data-label="Nevojitet për 30 ditë" class="num">${q(m.need_30d)}<span class="unit">${esc(UNIT(m.unit))}</span></td>
+      <td data-label="Mjafton për" class="num">${days(m.cover_days)}</td>
+      <td data-label="Porosit" class="num">${m.order_qty ? `<span class="qty">${q(m.order_qty)}</span><span class="unit">${esc(UNIT(m.unit))}</span>` : '—'}</td>
       <td class="rowacts"><button class="link" data-mat="${m.id}">${m.products.length} ${m.products.length === 1 ? 'product' : 'products'}</button></td></tr>`).join('')}
     </tbody></table></div></section>`;
 }
 function materialDialog(m) {
   const dlg = $('#dlg'), q = n => fmt(Math.round(n));
   dlg.innerHTML = `<form method="dialog"><h2>${esc(m.sku)}</h2>
-    <p class="muted" style="margin:-10px 0 16px">${esc(m.name)}. ${q(m.on_hand)} ${esc(m.unit)} on hand, about ${q(m.need_per_day)} ${esc(m.unit)} used per day.</p>
-    <div class="panel tablewrap"><table class="cards"><thead><tr><th>Made into</th><th class="num">Per 1,000</th><th class="num">To produce now</th><th class="num">Forecast, 30 days</th><th class="num">Material, 30 days</th></tr></thead><tbody>
+    <p class="muted" style="margin:-10px 0 16px">${esc(m.name)}. ${q(m.on_hand)} ${esc(UNIT(m.unit))} on hand, about ${q(m.need_per_day)} ${esc(UNIT(m.unit))} used per day.</p>
+    <div class="panel tablewrap"><table class="cards"><thead><tr><th>Përdoret për</th><th class="num">Për 1.000</th><th class="num">Për t'u prodhuar tani</th><th class="num">Parashikimi, 30 ditë</th><th class="num">Lënda, 30 ditë</th></tr></thead><tbody>
     ${m.products.map(p => `<tr><td><div class="sku">${esc(p.sku)}</div><div class="sub">${esc(p.name)}</div></td>
-      <td data-label="Per 1,000" class="num">${fmt(p.per_1000)}<span class="unit">${esc(m.unit)}</span></td>
-      <td data-label="To produce now" class="num">${p.make_now ? `${q(p.make_now)}<span class="unit">${esc(p.unit)}</span><div class="sub">${q(p.need_now)} ${esc(m.unit)}</div>` : '—'}</td>
-      <td data-label="Forecast, 30 days" class="num">${q(p.forecast_30d)}<span class="unit">${esc(p.unit)}</span></td>
-      <td data-label="Material, 30 days" class="num">${q(p.need_30d)}<span class="unit">${esc(m.unit)}</span></td></tr>`).join('')}
+      <td data-label="Për 1.000" class="num">${fmt(p.per_1000)}<span class="unit">${esc(UNIT(m.unit))}</span></td>
+      <td data-label="Për t'u prodhuar tani" class="num">${p.make_now ? `${q(p.make_now)}<span class="unit">${esc(UNIT(p.unit))}</span><div class="sub">${q(p.need_now)} ${esc(UNIT(m.unit))}</div>` : '—'}</td>
+      <td data-label="Parashikimi, 30 ditë" class="num">${q(p.forecast_30d)}<span class="unit">${esc(UNIT(p.unit))}</span></td>
+      <td data-label="Lënda, 30 ditë" class="num">${q(p.need_30d)}<span class="unit">${esc(UNIT(m.unit))}</span></td></tr>`).join('')}
     </tbody></table></div>
-    <div class="actions"><button class="btn primary">Close</button></div></form>`;
+    <div class="actions"><button class="btn primary">Mbyll</button></div></form>`;
   dlg.showModal();
 }
 
 /* ---------- products ---------- */
 async function viewProducts() {
-  $('#view').innerHTML = phead('Products', `${state.products.length} in the catalogue`, isAdmin() ? `<button class="btn primary" onclick="productDialog()">${icon('plus')}New product</button>
-      ${moreMenu(`<button onclick="importDialog('products')">Import products (CSV)</button><button onclick="importDialog('opening-stock')">Import opening stock (CSV)</button>`)}` : '') + `
-    <section class="panel tablewrap">${state.products.length ? `<table class="cards"><thead><tr><th>Product</th><th>Category</th><th>Spec</th><th>Unit</th><th class="num">Minimum</th><th class="num">Unit cost</th><th>Barcode</th><th>Prodata code</th><th></th></tr></thead><tbody>${state.products.map(p => `
-      <tr><td><div class="sku">${esc(p.sku)} ${p.active ? '' : '<span class="pill off">Inactive</span>'}</div><div class="sub">${esc(p.name)}</div>${p.material_id ? `<div class="sub">Made from ${esc(state.products.find(x => x.id === p.material_id)?.sku || '')}, ${fmt(p.material_per_1000)} ${esc(state.products.find(x => x.id === p.material_id)?.unit || '')} per 1,000</div>` : ''}</td><td data-label="Category">${esc(p.category)}</td><td data-label="Spec" class="small">${esc(p.spec)}</td><td data-label="Unit">${esc(p.unit)}</td>
-      <td data-label="Minimum" class="num">${fmt(p.min_stock)}</td><td data-label="Unit cost" class="num">${p.unit_cost != null ? money(p.unit_cost) : ''}</td><td data-label="Barcode" class="small">${esc(p.barcode)}</td><td data-label="Prodata code">${esc(p.prodata_code)}</td>
-      <td class="rowacts">${isAdmin() ? `<button class="link" onclick="productDialog(${p.id})">Edit</button>` : ''}</td></tr>`).join('')}</tbody></table><div class="gridfoot"><span>${state.products.length} products, ${state.products.filter(p => !p.active).length} inactive</span></div>`
-      : `<div class="empty"><b>No products yet</b>${isAdmin() ? 'Add one, or import your list from a CSV file.' : 'An administrator can add products.'}</div>`}</section>`;
+  $('#view').innerHTML = phead('Artikujt', `${state.products.length} në katalog`, isAdmin() ? `<button class="btn primary" onclick="productDialog()">${icon('plus')}Artikull i ri</button>
+      ${moreMenu(`<button onclick="importDialog('products')">Importo artikujt (CSV)</button><button onclick="importDialog('opening-stock')">Importo stokun fillestar (CSV)</button>`)}` : '') + `
+    <section class="panel tablewrap">${state.products.length ? `<table class="cards"><thead><tr><th>Artikulli</th><th>Kategoria</th><th>Specifikimi</th><th>Njësia</th><th class="num">Pesha / 1.000 copë</th><th class="num">Minimumi</th><th class="num">Kosto/njësi</th><th>Barkodi</th><th>Kodi Prodata</th><th></th></tr></thead><tbody>${state.products.map(p => `
+      <tr><td><div class="sku">${esc(p.sku)} ${p.active ? '' : '<span class="pill off">Joaktiv</span>'}</div><div class="sub">${esc(p.name)}</div>${p.material_id ? `<div class="sub">Prodhohet nga ${esc(state.products.find(x => x.id === p.material_id)?.sku || '')}, ${fmt(p.material_per_1000)} ${esc(UNIT(state.products.find(x => x.id === p.material_id)?.unit))} për 1.000</div>` : ''}</td><td data-label="Kategoria">${esc(p.category)}</td><td data-label="Specifikimi" class="small">${esc(p.spec)}</td><td data-label="Njësia">${esc(UNIT(p.unit))}</td><td data-label="Pesha / 1.000 copë" class="num">${p.kg_per_1000 ? fmt(p.kg_per_1000) + ' kg' : ''}</td>
+      <td data-label="Minimumi" class="num">${fmt(p.min_stock)}</td><td data-label="Kosto/njësi" class="num">${p.unit_cost != null ? money(p.unit_cost) : ''}</td><td data-label="Barkodi" class="small">${esc(p.barcode)}</td><td data-label="Kodi Prodata">${esc(p.prodata_code)}</td>
+      <td class="rowacts">${isAdmin() ? `<button class="link" onclick="productDialog(${p.id})">Ndrysho</button>` : ''}</td></tr>`).join('')}</tbody></table><div class="gridfoot"><span>${state.products.length} artikuj, ${state.products.filter(p => !p.active).length} joaktivë</span></div>`
+      : `<div class="empty"><b>Ende pa artikuj</b>${isAdmin() ? 'Shtoni një, ose importoni listën nga një skedar CSV.' : 'Administratori mund të shtojë artikuj.'}</div>`}</section>`;
 }
 function productDialog(id) {
   const p = state.products.find(x => x.id === id) || { unit: 'kg', min_stock: 0, active: 1 };
   const mat = state.products.find(x => x.id === p.material_id);
-  const { form: pform } = openDialog(`<form><h2>${id ? 'Edit product' : 'New product'}</h2>
+  const { form: pform } = openDialog(`<form><h2>${id ? 'Ndrysho artikullin' : 'Artikull i ri'}</h2>
     <div class="two"><div class="field"><label>SKU</label><input name="sku" required value="${esc(p.sku)}"></div>
-      <div class="field"><label>Unit</label><select name="unit"><option value="kg" ${p.unit === 'kg' ? 'selected' : ''}>kg (weight, decimals allowed)</option><option value="pcs" ${p.unit === 'pcs' ? 'selected' : ''}>pcs (pieces, counted 1, 2, 3)</option>${!['kg', 'pcs'].includes(p.unit) ? `<option value="${esc(p.unit)}" selected>${esc(p.unit)}</option>` : ''}</select></div></div>
-    <div class="field"><label>Name</label><input name="name" required value="${esc(p.name)}"></div>
-    <div class="two"><div class="field"><label>Category</label><input name="category" list="cats" value="${esc(p.category)}"><datalist id="cats">${[...new Set(state.products.map(x => x.category).filter(Boolean))].map(c => `<option>${esc(c)}</option>`).join('')}</datalist></div>
-      <div class="field"><label>Spec (standard, class, finish)</label><input name="spec" value="${esc(p.spec)}"></div></div>
-    <div class="two"><div class="field"><label>Minimum stock (alert level)</label><input name="min_stock" type="number" step="any" min="0" value="${p.min_stock ?? 0}"></div>
-      <div class="field"><label>Unit cost in € (optional)</label><input name="unit_cost" type="number" step="any" min="0" value="${p.unit_cost ?? ''}"></div></div>
-    <div class="field"><label>Barcode or QR value on the packaging (optional)</label><div class="inputrow"><input name="barcode" autocomplete="off" value="${esc(p.barcode)}"><button type="button" class="btn" data-scan>${icon('scan')}Scan</button></div></div>
-    <div class="two"><div class="field"><label>Made from (raw material SKU, optional)</label><input name="material_sku" list="mats" autocomplete="off" placeholder="e.g. RM-10B21-8" value="${esc(mat?.sku || '')}">
+      <div class="field"><label>Njësia</label><select name="unit"><option value="kg" ${p.unit === 'kg' ? 'selected' : ''}>kg (peshë, lejohen decimalet)</option><option value="pcs" ${p.unit === 'pcs' ? 'selected' : ''}>copë (numërohen 1, 2, 3)</option>${!['kg', 'pcs'].includes(p.unit) ? `<option value="${esc(UNIT(p.unit))}" selected>${esc(UNIT(p.unit))}</option>` : ''}</select></div></div>
+    <div class="field"><label>Emërtimi</label><input name="name" required value="${esc(p.name)}"></div>
+    <div class="field"><label>Pesha e 1.000 copëve në kg (opsionale, që tabelat të tregojnë edhe kg edhe copë)</label><input name="kg_per_1000" type="number" step="any" min="0" placeholder="p.sh. 19,6 për M8x40" value="${p.kg_per_1000 ?? ''}"></div>
+    <div class="two"><div class="field"><label>Kategoria</label><input name="category" list="cats" value="${esc(p.category)}"><datalist id="cats">${[...new Set(state.products.map(x => x.category).filter(Boolean))].map(c => `<option>${esc(c)}</option>`).join('')}</datalist></div>
+      <div class="field"><label>Specifikimi (standardi, klasa, veshja)</label><input name="spec" value="${esc(p.spec)}"></div></div>
+    <div class="two"><div class="field"><label>Stoku minimal (niveli i alarmit)</label><input name="min_stock" type="number" step="any" min="0" value="${p.min_stock ?? 0}"></div>
+      <div class="field"><label>Kostoja për njësi në € (opsionale)</label><input name="unit_cost" type="number" step="any" min="0" value="${p.unit_cost ?? ''}"></div></div>
+    <div class="field"><label>Barkodi ose vlera QR në paketim (opsionale)</label><div class="inputrow"><input name="barcode" autocomplete="off" value="${esc(p.barcode)}"><button type="button" class="btn" data-scan>${icon('scan')}Skano</button></div></div>
+    <div class="two"><div class="field"><label>Prodhohet nga (shifra e lëndës së parë, opsionale)</label><input name="material_sku" list="mats" autocomplete="off" placeholder="p.sh. RM-10B21-8" value="${esc(mat?.sku || '')}">
         <datalist id="mats">${state.products.filter(x => x.id !== id).map(x => `<option value="${esc(x.sku)}">${esc(x.name)}</option>`).join('')}</datalist></div>
-      <div class="field"><label id="perlbl">Material per 1,000 ${esc(p.unit || 'pcs')}</label><input name="material_per_1000" type="number" step="any" min="0" placeholder="e.g. 22.5" value="${p.material_per_1000 ?? ''}"></div></div>
-    <div class="field"><label>Prodata item code (optional)</label><input name="prodata_code" value="${esc(p.prodata_code)}"></div>
-    ${id ? `<div class="field row"><input type="checkbox" name="active" id="act" ${p.active ? 'checked' : ''}><label for="act">Active</label></div>` : ''}
-    <div class="actions">${id ? `<button type="button" class="btn" data-delete style="margin-right:auto;color:var(--out);border-color:var(--out)">Delete</button>` : ''}<button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save product</button></div></form>`,
+      <div class="field"><label id="perlbl">Lënda për 1.000 ${esc(UNIT(p.unit || 'kg'))}</label><input name="material_per_1000" type="number" step="any" min="0" placeholder="p.sh. 22,5" value="${p.material_per_1000 ?? ''}"></div></div>
+    <div class="field"><label>Kodi i artikullit në Prodata (opsional)</label><input name="prodata_code" value="${esc(p.prodata_code)}"></div>
+    ${id ? `<div class="field row"><input type="checkbox" name="active" id="act" ${p.active ? 'checked' : ''}><label for="act">Aktiv</label></div>` : ''}
+    <div class="actions">${id ? `<button type="button" class="btn" data-delete style="margin-right:auto;color:var(--out);border-color:var(--out)">Fshij</button>` : ''}<button type="button" class="btn" data-cancel>Anulo</button><button class="btn primary">Ruaj artikullin</button></div></form>`,
     async (v, f) => {
       const body = { ...v }; if (id) body.active = f.active.checked;
       await api(id ? '/products/' + id : '/products', { method: id ? 'PUT' : 'POST', body });
-      toast('Product saved');
+      toast('Artikulli u ruajt');
     });
   pform.querySelector('[data-scan]').onclick = async () => { const c = await scanCode(); if (c) pform.barcode.value = c; };
   const del = pform.querySelector('[data-delete]');
   if (del) del.onclick = () => deleteProduct(p, pform);
   const perLabel = () => {
     const m = state.products.find(x => x.sku.toLowerCase() === pform.material_sku.value.trim().toLowerCase());
-    $('#perlbl').textContent = `${m ? esc(m.unit) : 'Material'} per 1,000 ${pform.unit.value || 'pcs'}`;
+    $('#perlbl').textContent = `${m ? esc(UNIT(m.unit)) : 'Lënda'} per 1,000 ${pform.unit.value || 'pcs'}`;
   };
   ['input', 'change'].forEach(ev => { pform.material_sku.addEventListener(ev, perLabel); pform.unit.addEventListener(ev, perLabel); });
   perLabel();
@@ -918,13 +939,13 @@ function productDialog(id) {
 async function deleteProduct(p, form) {
   const err = form.querySelector('.err');
   const fail = ex => { err.textContent = ex.message; err.hidden = false; };
-  if (!confirm(`Delete ${p.sku} (${p.name}) permanently? This cannot be undone.`)) return;
+  if (!confirm(`Të fshihet përgjithmonë ${p.sku} (${p.name})? Kjo nuk mund të kthehet.`)) return;
   try {
     try { await api('/products/' + p.id, { method: 'DELETE', body: {} }); }
     catch (ex) {
       const n = ex.data?.movements;
       if (!n) throw ex;
-      if (!confirm(`${p.sku} has ${n} stock movement${n === 1 ? '' : 's'}.\n\nDeleting it also permanently deletes those movements, so stock totals, history and analytics change.\n\nDelete the product and its history?`)) return;
+      if (!confirm(`${p.sku} ka ${n} lëvizje stoku.\n\nFshirja e tij fshin përgjithmonë edhe këto lëvizje, prandaj ndryshojnë totalet e stokut, historiku dhe analitika.\n\nTë fshihet artikulli bashkë me historikun?`)) return;
       await api('/products/' + p.id, { method: 'DELETE', body: { with_history: true } });
     }
     $('#dlg').close();
@@ -934,32 +955,32 @@ async function deleteProduct(p, form) {
 }
 function importDialog(kind) {
   const isProducts = kind === 'products';
-  openDialog(`<form><h2>${isProducts ? 'Import products' : 'Import opening stock'}</h2>
+  openDialog(`<form><h2>${isProducts ? 'Importo artikujt' : 'Importo stokun fillestar'}</h2>
     <p class="muted">${isProducts
-      ? 'A CSV file with a header row. Required columns: <code>sku</code>, <code>name</code>. Optional: <code>category</code>, <code>spec</code>, <code>unit</code> (<code>kg</code>, the default, or <code>pcs</code>), <code>min_stock</code>, <code>unit_cost</code>, <code>barcode</code>, <code>prodata_code</code>, <code>material_sku</code> and <code>material_per_1000</code> (the raw material it is made from, and how much per 1,000). Products with an existing SKU are updated.'
-      : 'A CSV file with a header row and the columns <code>sku</code>, <code>location</code>, <code>qty</code>, and optionally <code>lot</code>. New locations are created. Use this once, when going live.'}</p>
-    <div class="field"><label>CSV file</label><input type="file" name="file" accept=".csv,text/csv" required></div>
-    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Import</button></div></form>`,
+      ? 'Skedar CSV me rresht titujsh. Kolonat e detyrueshme: <code>sku</code>, <code>name</code>. Opsionale: <code>category</code>, <code>spec</code>, <code>unit</code> (<code>kg</code>, si parazgjedhje, ose <code>pcs</code> për copë), <code>kg_per_1000</code> (pesha e 1.000 copëve), <code>min_stock</code>, <code>unit_cost</code>, <code>barcode</code>, <code>prodata_code</code>, <code>material_sku</code> dhe <code>material_per_1000</code> (lënda e parë nga e cila prodhohet dhe sasia për 1.000). Artikujt me shifër ekzistuese përditësohen.'
+      : 'Skedar CSV me rresht titujsh dhe kolonat <code>sku</code>, <code>location</code>, <code>qty</code> dhe opsionalisht <code>lot</code>. Lokacionet e reja krijohen automatikisht. Përdoreni një herë, kur filloni punën me sistemin.'}</p>
+    <div class="field"><label>Skedari CSV</label><input type="file" name="file" accept=".csv,text/csv" required></div>
+    <div class="actions"><button type="button" class="btn" data-cancel>Anulo</button><button class="btn primary">Importo</button></div></form>`,
     async (v, f) => {
       const csv = await f.file.files[0].text();
       const r = await api('/import/' + kind, { method: 'POST', body: { csv } });
-      toast(isProducts ? `Imported: ${r.created} new, ${r.updated} updated` : `Imported ${r.imported} rows`);
+      toast(isProducts ? `U importuan: ${r.created} të rinj, ${r.updated} të përditësuar` : `U importuan ${r.imported} rreshta`);
     });
 }
 
 /* ---------- movements ---------- */
 async function viewMovements() {
-  $('#view').innerHTML = phead('Movements', 'Every receipt, issue, transfer and stocktake', `<a class="btn" id="mexp" href="#">${icon('download')}Download CSV</a>`) + `
-    <div class="filters">${state.movProduct ? `<span class="chip">${esc(state.movProduct.sku)}<button type="button" id="clrprod" title="Show all products" aria-label="Show all products">&times;</button></span>` : ''}
-      <div class="search">${icon('search')}<input type="search" id="mq" placeholder="Search SKU, lot, reference, location" aria-label="Search movements" value="${esc(state.movQ)}"></div>
-      <select id="mk" aria-label="Type"><option value="">All types</option>${Object.entries(KIND_LABEL).map(([k, l]) => `<option value="${k}" ${state.movKind === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+  $('#view').innerHTML = phead('Lëvizjet', 'Çdo pranim, dalje, transferim dhe inventarizim', `<a class="btn" id="mexp" href="#">${icon('download')}Shkarko CSV</a>`) + `
+    <div class="filters">${state.movProduct ? `<span class="chip">${esc(state.movProduct.sku)}<button type="button" id="clrprod" title="Shfaq të gjithë artikujt" aria-label="Shfaq të gjithë artikujt">&times;</button></span>` : ''}
+      <div class="search">${icon('search')}<input type="search" id="mq" placeholder="Kërko shifrën, lotin, referencën, lokacionin" aria-label="Kërko lëvizjet" value="${esc(state.movQ)}"></div>
+      <select id="mk" aria-label="Lloji"><option value="">Të gjitha llojet</option>${Object.entries(KIND_LABEL).map(([k, l]) => `<option value="${k}" ${state.movKind === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
     <section class="panel tablewrap" id="movtable"></section>`;
   const load = async () => {
     const qs = new URLSearchParams({ q: state.movQ, kind: state.movKind, ...(state.movProduct ? { product_id: state.movProduct.id } : {}) });
     $('#mexp').href = '/api/export/movements.csv?' + qs;
     const rows = await api('/movements?limit=500&' + qs);
     $('#movtable').innerHTML = rows.length ? `<table class="cards"><thead>${movHead()}</thead><tbody>${movRows(rows)}</tbody></table>
-      <div class="gridfoot"><span>${rows.length === 500 ? 'Showing the latest 500 movements. Search or filter to narrow down.' : `${rows.length} ${rows.length === 1 ? 'movement' : 'movements'}`}</span></div>` : '<div class="empty"><b>No movements found</b>Try another search or type.</div>';
+      <div class="gridfoot"><span>${rows.length === 500 ? 'Shfaqen 500 lëvizjet e fundit. Kërkoni ose filtroni për t\'i ngushtuar.' : `${rows.length} lëvizje`}</span></div>` : '<div class="empty"><b>Nuk u gjet asnjë lëvizje</b>Provoni një kërkim ose lloj tjetër.</div>';
   };
   $('#clrprod')?.addEventListener('click', () => { state.movProduct = null; show(); });
   let timer; $('#mq').oninput = e => { state.movQ = e.target.value; clearTimeout(timer); timer = setTimeout(load, 250); };
@@ -969,31 +990,31 @@ async function viewMovements() {
 
 /* ---------- locations ---------- */
 async function viewLocations() {
-  $('#view').innerHTML = phead('Locations', 'Warehouse zones, stores, racks or bins', isAdmin() ? `<button class="btn primary" onclick="locationDialog()">${icon('plus')}New location</button>` : '') + `
-    <section class="panel tablewrap"><table><thead><tr><th>Name</th><th>Status</th><th></th></tr></thead><tbody>${state.locations.map(l => `
-      <tr><td class="strong">${esc(l.name)}</td><td>${l.active ? '<span class="pill ok">Active</span>' : '<span class="pill off">Inactive</span>'}</td><td class="rowacts">${isAdmin() ? `<button class="link" onclick="locationDialog(${l.id})">Edit</button>` : ''}</td></tr>`).join('')}</tbody></table></section>
-    <p class="muted small">Move stock between locations with Transfer, under Stock.</p>`;
+  $('#view').innerHTML = phead('Lokacionet', 'Zonat e magazinës, depot, raftet ose kutitë', isAdmin() ? `<button class="btn primary" onclick="locationDialog()">${icon('plus')}Lokacion i ri</button>` : '') + `
+    <section class="panel tablewrap"><table><thead><tr><th>Emërtimi</th><th>Statusi</th><th></th></tr></thead><tbody>${state.locations.map(l => `
+      <tr><td class="strong">${esc(l.name)}</td><td>${l.active ? '<span class="pill ok">Aktiv</span>' : '<span class="pill off">Joaktiv</span>'}</td><td class="rowacts">${isAdmin() ? `<button class="link" onclick="locationDialog(${l.id})">Ndrysho</button>` : ''}</td></tr>`).join('')}</tbody></table></section>
+    <p class="muted small">Zhvendosni stokun mes lokacioneve me Transferim, te Stoku.</p>`;
 }
 function locationDialog(id) {
   const l = state.locations.find(x => x.id === id) || { active: 1 };
-  openDialog(`<form><h2>${id ? 'Edit location' : 'New location'}</h2>
-    <div class="field"><label>Name</label><input name="name" required value="${esc(l.name)}"></div>
-    ${id ? `<div class="field row"><input type="checkbox" name="active" id="lact" ${l.active ? 'checked' : ''}><label for="lact">Active</label></div>` : ''}
-    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save location</button></div></form>`,
+  openDialog(`<form><h2>${id ? 'Ndrysho lokacionin' : 'Lokacion i ri'}</h2>
+    <div class="field"><label>Emërtimi</label><input name="name" required value="${esc(l.name)}"></div>
+    ${id ? `<div class="field row"><input type="checkbox" name="active" id="lact" ${l.active ? 'checked' : ''}><label for="lact">Aktiv</label></div>` : ''}
+    <div class="actions"><button type="button" class="btn" data-cancel>Anulo</button><button class="btn primary">Ruaj lokacionin</button></div></form>`,
     async (v, f) => {
       const body = { name: v.name }; if (id) body.active = f.active.checked;
       await api(id ? '/locations/' + id : '/locations', { method: id ? 'PUT' : 'POST', body });
-      toast('Location saved');
+      toast('Lokacioni u ruajt');
     });
 }
 
 /* ---------- reverse a movement (admin) ---------- */
 function reverseDialog(id) {
-  openDialog(`<form><h2>Reverse movement #${id}</h2>
-    <p class="muted">This books the opposite movement (both sides of a transfer), so stock goes back to how it was. The original stays in the history. It is refused if that stock has been used since.</p>
-    <div class="field"><label>Reason (optional)</label><input name="note" placeholder="For example: wrong quantity entered"></div>
-    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Reverse movement</button></div></form>`,
-    async v => { await api(`/movements/${id}/reverse`, { method: 'POST', body: { note: v.note } }); toast('Movement reversed'); });
+  openDialog(`<form><h2>Storno lëvizjen #${id}</h2>
+    <p class="muted">Kjo regjistron lëvizjen e kundërt (të dy anët e një transferimi), që stoku të kthehet siç ishte. Origjinali mbetet në historik. Refuzohet nëse ai stok është përdorur ndërkohë.</p>
+    <div class="field"><label>Arsyeja (opsionale)</label><input name="note" placeholder="Për shembull: u shënua sasi e gabuar"></div>
+    <div class="actions"><button type="button" class="btn" data-cancel>Anulo</button><button class="btn primary">Storno lëvizjen</button></div></form>`,
+    async v => { await api(`/movements/${id}/reverse`, { method: 'POST', body: { note: v.note } }); toast('Lëvizja u stornua'); });
 }
 
 /* ---------- barcode / QR scanning with the phone camera ---------- */
@@ -1004,7 +1025,7 @@ function loadScanner() {
     const s = document.createElement('script');
     s.src = '/static/vendor/html5-qrcode.min.js';
     s.onload = resolve;
-    s.onerror = () => { scannerLoading = null; reject(new Error('The scanner could not be loaded')); };
+    s.onerror = () => { scannerLoading = null; reject(new Error('Skaneri nuk mund të ngarkohej')); };
     document.head.appendChild(s);
   });
   return scannerLoading;
@@ -1022,16 +1043,16 @@ function scanCode() {   // resolves with the scanned text, or null when cancelle
     };
     $('#scancancel').onclick = () => finish(null);
     dlg.oncancel = e => { e.preventDefault(); finish(null); };
-    msg.textContent = 'Starting the camera…';
+    msg.textContent = 'Duke ndezur kamerën…';
     dlg.showModal();
     try {
       scanner = new Html5Qrcode('reader');
       await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 260, height: 170 } }, text => finish(text.trim()), () => {});
-      msg.textContent = 'Point the camera at the barcode or QR code.';
+      msg.textContent = 'Drejtojeni kamerën nga barkodi ose kodi QR.';
     } catch (e) {
       msg.textContent = (!window.isSecureContext)
-        ? 'The camera only works on a secure (https) address.'
-        : 'The camera could not start. Allow camera access for this site, then try again.';
+        ? 'Kamera punon vetëm në adresë të sigurt (https).'
+        : 'Kamera nuk u ndez. Lejoni qasjen në kamerë për këtë faqe dhe provoni përsëri.';
     }
   });
 }
@@ -1055,21 +1076,21 @@ async function scanToSearch() {      // filters the stock list to the scanned pr
 /* ---------- users (admin) & own password ---------- */
 async function viewUsers() {
   state.users = await api('/users');
-  $('#view').innerHTML = phead('Users', 'Who can sign in, and what they can do', `<button class="btn primary" onclick="userDialog()">${icon('plus')}New user</button>`) + `
-    <section class="panel tablewrap"><table class="cards"><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody>${state.users.map(u => `
-      <tr><td><span class="strong">${esc(u.username)}</span>${u.id === state.user.id ? ' <span class="muted small">(you)</span>' : ''}</td><td data-label="Role">${ROLE_LABEL[u.role] || esc(u.role)}</td>
-      <td data-label="Status">${u.active ? '<span class="pill ok">Active</span>' : '<span class="pill off">Blocked</span>'}</td><td data-label="Created" class="muted small">${esc(when(u.created_at))}</td>
-      <td class="rowacts"><button class="link" onclick="userDialog(${u.id})">Edit</button></td></tr>`).join('')}</tbody></table></section>
-    <p class="muted small">Administrator: everything, including products, locations, imports and users. Warehouse staff: see everything and book movements. Read only: see everything.</p>`;
+  $('#view').innerHTML = phead('Përdoruesit', 'Kush mund të kyçet dhe çfarë mund të bëjë', `<button class="btn primary" onclick="userDialog()">${icon('plus')}Përdorues i ri</button>`) + `
+    <section class="panel tablewrap"><table class="cards"><thead><tr><th>Përdoruesi</th><th>Roli</th><th>Statusi</th><th>Krijuar</th><th></th></tr></thead><tbody>${state.users.map(u => `
+      <tr><td><span class="strong">${esc(u.username)}</span>${u.id === state.user.id ? ' <span class="muted small">(you)</span>' : ''}</td><td data-label="Roli">${ROLE_LABEL[u.role] || esc(u.role)}</td>
+      <td data-label="Statusi">${u.active ? '<span class="pill ok">Aktiv</span>' : '<span class="pill off">I bllokuar</span>'}</td><td data-label="Krijuar" class="muted small">${esc(when(u.created_at))}</td>
+      <td class="rowacts"><button class="link" onclick="userDialog(${u.id})">Ndrysho</button></td></tr>`).join('')}</tbody></table></section>
+    <p class="muted small">Administratori: gjithçka, përfshirë artikujt, lokacionet, importet dhe përdoruesit. Magazinieri: sheh gjithçka dhe regjistron lëvizje. Vetëm lexim: sheh gjithçka.</p>`;
 }
 function userDialog(id) {
   const u = state.users.find(x => x.id === id) || { role: 'staff', active: 1 };
-  openDialog(`<form><h2>${id ? 'Edit user' : 'New user'}</h2>
-    <div class="field"><label>Username</label><input name="username" required minlength="3" maxlength="32" autocapitalize="none" value="${esc(u.username)}" ${id ? 'disabled' : ''}></div>
-    <div class="field"><label>Role</label><select name="role">${['admin', 'staff', 'viewer'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></div>
-    <div class="field"><label>${id ? 'New password (leave empty to keep the current one)' : 'Password (at least 8 characters)'}</label><input name="password" type="password" autocomplete="new-password" minlength="8" ${id ? '' : 'required'}></div>
-    ${id ? `<div class="field row"><input type="checkbox" name="active" id="uact" ${u.active ? 'checked' : ''}><label for="uact">Can sign in</label></div>` : ''}
-    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Save user</button></div></form>`,
+  openDialog(`<form><h2>${id ? 'Ndrysho përdoruesin' : 'Përdorues i ri'}</h2>
+    <div class="field"><label>Emri i përdoruesit</label><input name="username" required minlength="3" maxlength="32" autocapitalize="none" value="${esc(u.username)}" ${id ? 'disabled' : ''}></div>
+    <div class="field"><label>Roli</label><select name="role">${['admin', 'staff', 'viewer'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select></div>
+    <div class="field"><label>${id ? 'Fjalëkalimi i ri (lëreni bosh për ta mbajtur aktualin)' : 'Fjalëkalimi (së paku 8 karaktere)'}</label><input name="password" type="password" autocomplete="new-password" minlength="8" ${id ? '' : 'required'}></div>
+    ${id ? `<div class="field row"><input type="checkbox" name="active" id="uact" ${u.active ? 'checked' : ''}><label for="uact">Mund të kyçet</label></div>` : ''}
+    <div class="actions"><button type="button" class="btn" data-cancel>Anulo</button><button class="btn primary">Ruaj përdoruesin</button></div></form>`,
     async (v, f) => {
       if (id) {
         const body = { role: v.role, active: f.active.checked }; if (v.password) body.password = v.password;
@@ -1077,25 +1098,25 @@ function userDialog(id) {
       } else {
         await api('/users', { method: 'POST', body: { username: v.username, role: v.role, password: v.password } });
       }
-      toast('User saved');
+      toast('Përdoruesi u ruajt');
     });
 }
 function passwordDialog() {
-  openDialog(`<form><h2>Change password</h2>
-    <div class="field"><label>Current password</label><input name="current" type="password" autocomplete="current-password" required></div>
-    <div class="field"><label>New password (at least 8 characters)</label><input name="new" type="password" autocomplete="new-password" minlength="8" required></div>
-    <div class="field"><label>Repeat new password</label><input name="again" type="password" autocomplete="new-password" required></div>
-    <div class="actions"><button type="button" class="btn" data-cancel>Cancel</button><button class="btn primary">Change password</button></div></form>`,
+  openDialog(`<form><h2>Ndrysho fjalëkalimin</h2>
+    <div class="field"><label>Fjalëkalimi aktual</label><input name="current" type="password" autocomplete="current-password" required></div>
+    <div class="field"><label>Fjalëkalimi i ri (së paku 8 karaktere)</label><input name="new" type="password" autocomplete="new-password" minlength="8" required></div>
+    <div class="field"><label>Përsëritni fjalëkalimin e ri</label><input name="again" type="password" autocomplete="new-password" required></div>
+    <div class="actions"><button type="button" class="btn" data-cancel>Anulo</button><button class="btn primary">Ndrysho fjalëkalimin</button></div></form>`,
     async v => {
-      if (v.new !== v.again) throw new Error('The new passwords don\'t match');
+      if (v.new !== v.again) throw new Error('Fjalëkalimet e reja nuk përputhen');
       await api('/me/password', { method: 'POST', body: { current: v.current, new: v.new } });
-      toast('Password changed');
+      toast('Fjalëkalimi u ndryshua');
     });
 }
 
 
 /* ---------- analytics module ---------- */
-const PRESETS = [['30', 'Last 30 days'], ['90', 'Last 90 days'], ['365', 'Last 12 months'], ['ytd', 'This year'], ['ly', 'Last year'], ['custom', 'Custom period']];
+const PRESETS = [['30', '30 ditët e fundit'], ['90', '90 ditët e fundit'], ['365', '12 muajt e fundit'], ['ytd', 'Ky vit'], ['ly', 'Viti i kaluar'], ['custom', 'Periudhë sipas zgjedhjes']];
 state.af = store.get('vinex.af', { preset: '90', from: '', to: '', category: '', location: '' });
 state.pf = store.get('vinex.pf', { preset: '365', from: '', to: '', location: '' });
 const iso = d => d.toISOString().slice(0, 10);
@@ -1118,11 +1139,11 @@ function afBar(f, { category = true, extra = '' } = {}) {
   const cats = [...new Set(state.products.map(p => p.category).filter(Boolean))].sort();
   const [from, to] = afRange(f);
   return `<div class="afbar">${extra}
-    <label>Period <select data-af="preset">${PRESETS.map(([k, l]) => `<option value="${k}" ${f.preset === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-    ${f.preset === 'custom' ? `<label>From <input type="date" data-af="from" value="${from}"></label><label>To <input type="date" data-af="to" value="${to}"></label>` : ''}
-    ${category ? `<label>Category <select data-af="category"><option value="">All</option>${cats.map(c => `<option ${f.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>` : ''}
-    <label>Location <select data-af="location"><option value="">All</option>${state.locations.map(l => `<option value="${l.id}" ${String(f.location) === String(l.id) ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}</select></label>
-    <span class="sp"></span><span class="muted small" id="afrange">${shortD(from)} to ${shortD(to)}</span></div>`;
+    <label>Periudha <select data-af="preset">${PRESETS.map(([k, l]) => `<option value="${k}" ${f.preset === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    ${f.preset === 'custom' ? `<label>Nga <input type="date" data-af="from" value="${from}"></label><label>Deri <input type="date" data-af="to" value="${to}"></label>` : ''}
+    ${category ? `<label>Kategoria <select data-af="category"><option value="">Të gjitha</option>${cats.map(c => `<option ${f.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>` : ''}
+    <label>Lokacioni <select data-af="location"><option value="">Të gjitha</option>${state.locations.map(l => `<option value="${l.id}" ${String(f.location) === String(l.id) ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}</select></label>
+    <span class="sp"></span><span class="muted small" id="afrange">${shortD(from)} deri ${shortD(to)}</span></div>`;
 }
 function bindAf(f, key, reload) {
   $$('[data-af]').forEach(el => el.onchange = () => {
@@ -1131,7 +1152,7 @@ function bindAf(f, key, reload) {
     store.set(key, f); reload();
   });
 }
-const shortD = s => new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const shortD = s => sqDate(s, 'dmy');
 const chg = (p, inverse) => p == null ? '' : `<span class="chg ${p > 0.05 ? 'up' : p < -0.05 ? 'down' : 'flat'} ${inverse ? 'inv' : ''}">${p > 0.05 ? '▲' : p < -0.05 ? '▼' : '='} ${fmt(Math.abs(p))}%</span>`;
 const shareBar = (v, max) => `<div class="bar"><span style="width:${max ? Math.max(1, v / max * 100) : 0}%"></span></div>`;
 function downloadCSV(name, header, rows) {
@@ -1139,7 +1160,7 @@ function downloadCSV(name, header, rows) {
   const blob = new Blob(['﻿' + [header, ...rows].map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
-const csvBtn = `<button class="btn" data-csv>${icon('download')}Download CSV</button>`;
+const csvBtn = `<button class="btn" data-csv>${icon('download')}Shkarko CSV</button>`;
 function openProduct(id) { state.anProduct = id; go('an-product'); }
 
 /* simple SVG charts */
@@ -1173,111 +1194,111 @@ function stockLineChart(el, days, minStock, unit) {
   const grid = [0, .5, 1].map(t => { const v = min + (max - min) * t; return `<line x1="${left}" x2="${W}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line-2)"/><text x="${left - 5}" y="${Y(v) + 4}" text-anchor="end" font-size="10.5" fill="var(--faint)">${fmt(Math.round(v))}</text>`; }).join('');
   const months = days.map((d, i) => [d, i]).filter(([d]) => d.date.endsWith('-01'));
   const every = Math.ceil(months.length / Math.max(3, Math.floor(W / 70)));
-  const ticks = months.filter((_, k) => k % every === 0).map(([d, i]) => `<text x="${X(i)}" y="${H - 6}" text-anchor="middle" font-size="10.5" fill="var(--faint)">${new Date(d.date).toLocaleDateString('en-GB', { month: 'short' })}</text>`).join('');
+  const ticks = months.filter((_, k) => k % every === 0).map(([d, i]) => `<text x="${X(i)}" y="${H - 6}" text-anchor="middle" font-size="10.5" fill="var(--faint)">${sqDate(d.date, 'm')}</text>`).join('');
   const minLine = minStock ? `<line x1="${left}" x2="${W}" y1="${Y(minStock)}" y2="${Y(minStock)}" stroke="var(--low)" stroke-dasharray="4 3"/>` : '';
-  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Stock level over time">${grid}<path d="${area}" fill="#dfe4ef"/><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="1.6"/>${minLine}${ticks}</svg>
-    <div class="legend"><span><i style="background:var(--accent)"></i>Stock on hand (${esc(unit)})</span>${minStock ? `<span><i style="background:var(--low)"></i>Minimum ${fmt(minStock)}</span>` : ''}</div>`;
+  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Niveli i stokut me kohë">${grid}<path d="${area}" fill="#dfe4ef"/><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="1.6"/>${minLine}${ticks}</svg>
+    <div class="legend"><span><i style="background:var(--accent)"></i>Stoku në dispozicion (${esc(UNIT(unit))})</span>${minStock ? `<span><i style="background:var(--low)"></i>Minimumi ${fmt(minStock)}</span>` : ''}</div>`;
 }
 function forecastChart(el, weekly, fc, unit) {
   const W = Math.max(280, el.clientWidth - 24), H = 200, left = 46, bottom = 22, plot = H - bottom - 10;
   const all = [...weekly.map(w => ({ week: w.week, v: w.issued })), ...fc.map(f => ({ week: f.week, f }))];
-  if (!all.length) { el.innerHTML = '<div class="empty"><b>No issues in this period</b></div>'; return; }
+  if (!all.length) { el.innerHTML = '<div class="empty"><b>Pa dalje në këtë periudhë</b></div>'; return; }
   const max = Math.max(1, ...weekly.map(w => w.issued), ...fc.map(f => f.high)) * 1.05, bw = (W - left) / all.length;
   const Y = v => H - bottom - v / max * plot, cx = i => left + i * bw + bw / 2;
-  const bars = weekly.map((w, i) => `<rect x="${left + i * bw + bw * .15}" y="${Y(w.issued)}" width="${bw * .7}" height="${H - bottom - Y(w.issued)}" fill="var(--accent)"><title>Week of ${shortD(w.week)}: ${fmt(w.issued)} ${esc(unit)}</title></rect>`).join('');
+  const bars = weekly.map((w, i) => `<rect x="${left + i * bw + bw * .15}" y="${Y(w.issued)}" width="${bw * .7}" height="${H - bottom - Y(w.issued)}" fill="var(--accent)"><title>Java e ${shortD(w.week)}: ${fmt(w.issued)} ${esc(UNIT(unit))}</title></rect>`).join('');
   const o = weekly.length;
   const band = fc.length ? `<path d="${fc.map((f, k) => `${k ? 'L' : 'M'}${cx(o + k)},${Y(f.high)}`).join('')}${[...fc].reverse().map((f, k) => `L${cx(o + fc.length - 1 - k)},${Y(f.low)}`).join('')}Z" fill="#f6e3a8" opacity=".8"/>
     <path d="${fc.map((f, k) => `${k ? 'L' : 'M'}${cx(o + k)},${Y(f.mid)}`).join('')}" fill="none" stroke="#9c5d00" stroke-width="1.8" stroke-dasharray="5 3"/>
-    ${fc.map((f, k) => `<circle cx="${cx(o + k)}" cy="${Y(f.mid)}" r="6" fill="transparent"><title>Week of ${shortD(f.week)}: about ${fmt(Math.round(f.mid))} ${esc(unit)} (likely ${fmt(Math.round(f.low))} to ${fmt(Math.round(f.high))})</title></circle>`).join('')}` : '';
+    ${fc.map((f, k) => `<circle cx="${cx(o + k)}" cy="${Y(f.mid)}" r="6" fill="transparent"><title>Java e ${shortD(f.week)}: rreth ${fmt(Math.round(f.mid))} ${esc(UNIT(unit))} (mundësisht ${fmt(Math.round(f.low))} deri ${fmt(Math.round(f.high))})</title></circle>`).join('')}` : '';
   const grid = [0, .5, 1].map(t => `<line x1="${left}" x2="${W}" y1="${Y(max * t)}" y2="${Y(max * t)}" stroke="var(--line-2)"/><text x="${left - 5}" y="${Y(max * t) + 4}" text-anchor="end" font-size="10.5" fill="var(--faint)">${fmt(Math.round(max * t))}</text>`).join('');
   const every = Math.ceil(all.length / Math.max(4, Math.floor((W - left) / 56)));
-  const ticks = all.map((a, i) => i % every === 0 ? `<text x="${cx(i)}" y="${H - 6}" text-anchor="middle" font-size="10.5" fill="var(--faint)">${new Date(a.week).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</text>` : '').join('');
+  const ticks = all.map((a, i) => i % every === 0 ? `<text x="${cx(i)}" y="${H - 6}" text-anchor="middle" font-size="10.5" fill="var(--faint)">${sqDate(a.week, 'dm')}</text>` : '').join('');
   const now = fc.length ? `<line x1="${left + o * bw}" x2="${left + o * bw}" y1="6" y2="${H - bottom}" stroke="var(--faint)" stroke-dasharray="2 3"/>` : '';
-  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly use and forecast">${grid}${bars}${band}${now}${ticks}</svg>
-    <div class="legend"><span><i style="background:var(--accent)"></i>Issued per week</span>${fc.length ? '<span><i style="background:#9c5d00"></i>Forecast</span><span><i style="background:#f6e3a8"></i>Likely range (8 in 10 weeks fall inside)</span>' : '<span>A forecast needs at least 8 weeks of history</span>'}</div>`;
+  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Përdorimi javor dhe parashikimi">${grid}${bars}${band}${now}${ticks}</svg>
+    <div class="legend"><span><i style="background:var(--accent)"></i>Dalë në javë</span>${fc.length ? '<span><i style="background:#9c5d00"></i>Parashikimi</span><span><i style="background:#f6e3a8"></i>Diapazoni i mundshëm (8 nga 10 javë bien brenda)</span>' : '<span>Parashikimi kërkon së paku 8 javë historik</span>'}</div>`;
 }
 
 async function viewAnOverview() {
   const f = state.af, d = await api('/analytics/overview?' + afQuery(f)), k = d.kpi, c = d.change, a = d.alerts;
   const maxTop = Math.max(...d.top_products.map(t => t.value), 0), maxCat = Math.max(...d.categories.map(t => t.value), 0);
-  $('#view').innerHTML = phead('Analytics overview', `Compared with ${shortD(d.period.prev_start)} to ${shortD(d.period.prev_end)}`, csvBtn) + afBar(f) + `
+  $('#view').innerHTML = phead('Përmbledhja analitike', `Krahasuar me ${shortD(d.period.prev_start)} deri ${shortD(d.period.prev_end)}`, csvBtn) + afBar(f) + `
     <div class="strip" style="--n:4">
-      <div><div class="v">${money(k.issued_value)}${chg(c.issued_value)}</div><div class="l">Issued, ${fmt(k.issue_lines)} lines, ${k.products_issued} products</div></div>
-      <div><div class="v">${money(k.received_value)}${chg(c.received_value)}</div><div class="l">Received, ${fmt(k.receipt_lines)} lines</div></div>
-      <div><div class="v">${fmt(k.movements)}${chg(c.movements)}</div><div class="l">Movements booked</div></div>
-      <div class="${d.stock.out ? 'bad' : d.stock.low ? 'warn' : ''}"><div class="v">${money(d.stock.value)}</div><div class="l">Stock value now, ${d.stock.low + d.stock.out} at or below minimum</div></div>
+      <div><div class="v">${money(k.issued_value)}${chg(c.issued_value)}</div><div class="l">Dalë, ${fmt(k.issue_lines)} rreshta, ${k.products_issued} artikuj</div></div>
+      <div><div class="v">${money(k.received_value)}${chg(c.received_value)}</div><div class="l">Pranuar, ${fmt(k.receipt_lines)} rreshta</div></div>
+      <div><div class="v">${fmt(k.movements)}${chg(c.movements)}</div><div class="l">Lëvizje të regjistruara</div></div>
+      <div class="${d.stock.out ? 'bad' : d.stock.low ? 'warn' : ''}"><div class="v">${money(d.stock.value)}</div><div class="l">Vlera e stokut tani, ${d.stock.low + d.stock.out} në ose nën minimum</div></div>
     </div>
     <div class="cols wide-left" style="margin-bottom:14px">
-      <section class="panel"><div class="ph"><h2>Issued and received per week, value</h2></div><div class="pb" id="ovchart"></div></section>
-      <section class="panel"><div class="ph"><h2>Needs attention</h2><button class="link" onclick="go('an-reorder')">Reorder advice</button></div>
+      <section class="panel"><div class="ph"><h2>Dalë dhe pranuar në javë, vlera</h2></div><div class="pb" id="ovchart"></div></section>
+      <section class="panel"><div class="ph"><h2>Kërkon vëmendje</h2><button class="link" onclick="go('an-reorder')">Këshilla për riporositje</button></div>
         <ul class="alist">
-          <li><b class="${a.order_now_count ? 'outq' : ''}">${a.order_now_count}</b><span>to order now<div class="x">${a.order_soon_count} more soon</div></span></li>
-          <li><b class="${a.materials_short ? 'outq' : ''}">${a.materials_short}</b><span>raw materials short for production</span></li>
-          <li><b class="${a.slow_count ? 'adj' : ''}">${a.slow_count}</b><span>slow-moving products<div class="x">${money(a.slow_value)} tied up</div></span></li>
-          <li><b class="${a.anomalies.length ? 'adj' : ''}">${a.anomalies.length}</b><span>unusual movements in this period</span></li>
+          <li><b class="${a.order_now_count ? 'outq' : ''}">${a.order_now_count}</b><span>për t'u porositur tani<div class="x">${a.order_soon_count} të tjerë së shpejti</div></span></li>
+          <li><b class="${a.materials_short ? 'outq' : ''}">${a.materials_short}</b><span>lëndë të para që mungojnë për prodhim</span></li>
+          <li><b class="${a.slow_count ? 'adj' : ''}">${a.slow_count}</b><span>artikuj me lëvizje të ngadaltë<div class="x">${money(a.slow_value)} të bllokuara</div></span></li>
+          <li><b class="${a.anomalies.length ? 'adj' : ''}">${a.anomalies.length}</b><span>lëvizje të pazakonta në këtë periudhë</span></li>
         </ul>
-        ${a.order_now.length ? `<table><thead><tr><th>Order now</th><th class="num">On hand</th><th class="num">Order</th></tr></thead><tbody>${a.order_now.map(i => `<tr class="click" onclick="openProduct(${i.id})"><td><span class="sku">${esc(i.sku)}</span></td><td class="num">${fmt(i.on_hand)}</td><td class="num">${fmt(i.order_qty)} <span class="unit">${esc(i.unit)}</span></td></tr>`).join('')}</tbody></table>` : ''}
+        ${a.order_now.length ? `<table><thead><tr><th>Porosit tani</th><th class="num">Në stok</th><th class="num">Porosit</th></tr></thead><tbody>${a.order_now.map(i => `<tr class="click" onclick="openProduct(${i.id})"><td><span class="sku">${esc(i.sku)}</span></td><td class="num">${fmt(i.on_hand)}</td><td class="num">${fmt(i.order_qty)} <span class="unit">${esc(UNIT(i.unit))}</span></td></tr>`).join('')}</tbody></table>` : ''}
       </section>
     </div>
     <div class="cols">
-      <section class="panel"><div class="ph"><h2>Most issued products, by value</h2></div>
-        ${d.top_products.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Product</th><th class="num">Quantity</th><th class="num">Value</th><th style="width:22%"></th></tr></thead><tbody>
-        ${d.top_products.map(t => `<tr class="click" onclick="openProduct(${t.id})"><td><div class="sku">${esc(t.sku)}</div><div class="sub">${esc(t.name)}</div></td><td data-label="Quantity" class="num">${fmt(t.qty)}<span class="unit">${esc(t.unit)}</span></td><td data-label="Value" class="num">${money(t.value)}</td><td class="hp">${shareBar(t.value, maxTop)}</td></tr>`).join('')}
-        </tbody></table></div>` : '<div class="empty"><b>Nothing issued in this period</b></div>'}</section>
-      <section class="panel"><div class="ph"><h2>Issued value by category</h2></div>
-        ${d.categories.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Category</th><th class="num">Value</th><th class="num">Share</th><th style="width:30%"></th></tr></thead><tbody>
-        ${d.categories.map(t => `<tr><td class="strong">${esc(t.category)}</td><td data-label="Value" class="num">${money(t.value)}</td><td data-label="Share" class="num">${fmt(t.share)}%</td><td class="hp">${shareBar(t.value, maxCat)}</td></tr>`).join('')}
-        </tbody></table></div>` : '<div class="empty"><b>Nothing issued in this period</b></div>'}</section>
+      <section class="panel"><div class="ph"><h2>Artikujt më të dalë, sipas vlerës</h2></div>
+        ${d.top_products.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Artikulli</th><th class="num">Sasia</th><th class="num">Vlera</th><th style="width:22%"></th></tr></thead><tbody>
+        ${d.top_products.map(t => `<tr class="click" onclick="openProduct(${t.id})"><td><div class="sku">${esc(t.sku)}</div><div class="sub">${esc(t.name)}</div></td><td data-label="Sasia" class="num">${fmt(t.qty)}<span class="unit">${esc(UNIT(t.unit))}</span></td><td data-label="Vlera" class="num">${money(t.value)}</td><td class="hp">${shareBar(t.value, maxTop)}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="empty"><b>Asgjë e dalë në këtë periudhë</b></div>'}</section>
+      <section class="panel"><div class="ph"><h2>Vlera e dalë sipas kategorisë</h2></div>
+        ${d.categories.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Kategoria</th><th class="num">Vlera</th><th class="num">Pjesa</th><th style="width:30%"></th></tr></thead><tbody>
+        ${d.categories.map(t => `<tr><td class="strong">${esc(t.category)}</td><td data-label="Vlera" class="num">${money(t.value)}</td><td data-label="Pjesa" class="num">${fmt(t.share)}%</td><td class="hp">${shareBar(t.value, maxCat)}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="empty"><b>Asgjë e dalë në këtë periudhë</b></div>'}</section>
     </div>
-    <details class="how"><summary>About these numbers</summary><ul>
-      <li>Values use today's unit costs. Reversed movements and their reversals are left out.</li>
-      <li>The arrows compare with the previous period of the same length (${d.period.days} days).</li>
-      <li>"Needs attention" looks at all stock in the chosen category, whatever the period.</li></ul></details>`;
-  barsChart($('#ovchart'), d.weekly.map(w => new Date(w.week).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })),
-    [{ label: 'Issued', color: '#c0392b', values: d.weekly.map(w => w.issued) }, { label: 'Received', color: '#1d7a48', values: d.weekly.map(w => w.received) }], { money: true });
+    <details class="how"><summary>Rreth këtyre numrave</summary><ul>
+      <li>Vlerat përdorin kostot e sotme për njësi. Lëvizjet e stornuara dhe stornimet e tyre nuk llogariten.</li>
+      <li>Shigjetat krahasojnë me periudhën paraprake me të njëjtën gjatësi (${d.period.days} ditë).</li>
+      <li>"Kërkon vëmendje" shikon gjithë stokun në kategorinë e zgjedhur, pavarësisht periudhës.</li></ul></details>`;
+  barsChart($('#ovchart'), d.weekly.map(w => sqDate(w.week, 'dm')),
+    [{ label: 'Dalë', color: '#c0392b', values: d.weekly.map(w => w.issued) }, { label: 'Pranuar', color: '#1d7a48', values: d.weekly.map(w => w.received) }], { money: true });
   bindAf(f, 'vinex.af', viewAnOverview);
-  $('[data-csv]').onclick = () => downloadCSV('analytics-overview.csv', ['SKU', 'Name', 'Quantity issued', 'Unit', 'Value issued (EUR)'], d.top_products.map(t => [t.sku, t.name, t.qty, t.unit, t.value]));
+  $('[data-csv]').onclick = () => downloadCSV('analytics-overview.csv', ['Shifra', 'Emërtimi', 'Sasia e dalë', 'Njësia', 'Vlera e dalë (EUR)'], d.top_products.map(t => [t.sku, t.name, t.qty, t.unit, t.value]));
 }
 
 async function viewAnProduct() {
   const f = state.pf;
   const pid = state.anProduct || state.products.find(p => p.active)?.id;
-  const picker = `<div class="picker"><input list="anplist" id="anp" placeholder="Type SKU or name" value="${esc(pid ? productLabel(state.products.find(p => p.id === pid) || { sku: '', name: '' }) : '')}">
+  const picker = `<div class="picker"><input list="anplist" id="anp" placeholder="Shkruani shifrën ose emërtimin" value="${esc(pid ? productLabel(state.products.find(p => p.id === pid) || { sku: '', name: '' }) : '')}">
     <datalist id="anplist">${state.products.filter(p => p.active).map(p => `<option value="${esc(productLabel(p))}">`).join('')}</datalist></div>`;
-  if (!pid) { $('#view').innerHTML = phead('Product analysis', '') + '<div class="empty"><b>No products yet</b></div>'; return; }
+  if (!pid) { $('#view').innerHTML = phead('Analiza e artikullit', '') + '<div class="empty"><b>Ende pa artikuj</b></div>'; return; }
   const d = await api(`/analytics/product/${pid}?` + afQuery(f)), p = d.product, s = d.summary, adv = d.advice;
-  $('#view').innerHTML = phead('Product analysis', esc(`${p.sku}, ${p.name}`), csvBtn) + afBar(f, { category: false, extra: picker }) + `
+  $('#view').innerHTML = phead('Analiza e artikullit', esc(`${p.sku}, ${p.name}`), csvBtn) + afBar(f, { category: false, extra: picker }) + `
     <div class="strip" style="--n:4">
-      <div><div class="v">${fmt(s.issued)} <span class="unit">${esc(p.unit)}</span></div><div class="l">Issued in period, ${money(s.issued_value)}</div></div>
-      <div><div class="v">${fmt(s.avg_per_day)} <span class="unit">${esc(p.unit)}</span></div><div class="l">Per day on average, issued on ${s.issue_days} days</div></div>
-      <div><div class="v">${fmt(p.total)} <span class="unit">${esc(p.unit)}</span></div><div class="l">On hand${adv && adv.cover_days != null ? `, lasts about ${days(adv.cover_days)}` : ''}</div></div>
-      <div><div class="v">${adv ? `<span class="pill ${INS[adv.status][0]}" style="font-size:13px">${INS[adv.status][1]}</span>` : '—'}</div><div class="l">${adv && adv.reorder_point ? `Reorder at ${fmt(adv.reorder_point)}${adv.order_qty ? `, order ${fmt(adv.order_qty)}` : ''}` : 'No regular use yet'}${adv && (adv.abc || adv.xyz) ? `, class ${adv.abc || '–'}${adv.xyz || ''}` : ''}</div></div>
+      <div><div class="v">${fmt(s.issued)} <span class="unit">${esc(UNIT(p.unit))}</span></div><div class="l">Dalë në periudhë, ${money(s.issued_value)}</div></div>
+      <div><div class="v">${fmt(s.avg_per_day)} <span class="unit">${esc(UNIT(p.unit))}</span></div><div class="l">Mesatarisht në ditë, dalje në ${s.issue_days} ditë</div></div>
+      <div><div class="v">${fmt(p.total)} <span class="unit">${esc(UNIT(p.unit))}</span></div><div class="l">${ALT(p.total, p) ? ALT(p.total, p) + ', ' : ''}Në stok${adv && adv.cover_days != null ? `, mjafton rreth ${days(adv.cover_days)}` : ''}</div></div>
+      <div><div class="v">${adv ? `<span class="pill ${INS[adv.status][0]}" style="font-size:13px">${INS[adv.status][1]}</span>` : '—'}</div><div class="l">${adv && adv.reorder_point ? `Riporosit te ${fmt(adv.reorder_point)}${adv.order_qty ? `, porosit ${fmt(adv.order_qty)}` : ''}` : 'Ende pa përdorim të rregullt'}${adv && (adv.abc || adv.xyz) ? `, klasa ${adv.abc || '–'}${adv.xyz || ''}` : ''}</div></div>
     </div>
     <div class="cols" style="margin-bottom:14px">
-      <section class="panel"><div class="ph"><h2>Stock level over time</h2></div><div class="pb" id="pchart1"></div></section>
-      <section class="panel"><div class="ph"><h2>Weekly use and forecast for the next 12 weeks</h2></div><div class="pb" id="pchart2"></div></section>
+      <section class="panel"><div class="ph"><h2>Niveli i stokut me kohë</h2></div><div class="pb" id="pchart1"></div></section>
+      <section class="panel"><div class="ph"><h2>Përdorimi javor dhe parashikimi për 12 javët e ardhshme</h2></div><div class="pb" id="pchart2"></div></section>
     </div>
     <div class="cols" style="margin-bottom:14px">
-      <section class="panel"><div class="ph"><h2>Use by weekday</h2></div><div class="pb" id="pchart3"></div></section>
-      <section class="panel"><div class="ph"><h2>Use by month, last 2 years</h2></div><div class="pb" id="pchart4"></div></section>
+      <section class="panel"><div class="ph"><h2>Përdorimi sipas ditës së javës</h2></div><div class="pb" id="pchart3"></div></section>
+      <section class="panel"><div class="ph"><h2>Përdorimi sipas muajit, 2 vitet e fundit</h2></div><div class="pb" id="pchart4"></div></section>
     </div>
     <div class="cols">
-      <section class="panel"><div class="ph"><h2>Issued for (reference)</h2></div>${d.references.length ? `<table><thead><tr><th>Reference</th><th class="num">Lines</th><th class="num">Quantity</th></tr></thead><tbody>${d.references.map(r => `<tr><td>${esc(r.reference)}</td><td class="num">${r.lines}</td><td class="num">${fmt(r.qty)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No issues in this period.</div>'}</section>
-      <section class="panel"><div class="ph"><h2>Stock by location and lot</h2></div>${d.lots.length ? `<table><thead><tr><th>Location</th><th>Lot / heat no.</th><th class="num">Quantity</th></tr></thead><tbody>${d.lots.map(r => `<tr><td>${esc(r.location)}</td><td>${esc(r.lot) || '<span class="muted">No lot</span>'}</td><td class="num">${fmt(r.qty)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No stock.</div>'}
-        ${d.people.length ? `<table style="border-top:1px solid var(--line)"><thead><tr><th>Booked by</th><th class="num">Lines</th><th class="num">Issued</th></tr></thead><tbody>${d.people.map(r => `<tr><td>${esc(r.operator)}</td><td class="num">${r.lines}</td><td class="num">${fmt(r.issued)}</td></tr>`).join('')}</tbody></table>` : ''}</section>
+      <section class="panel"><div class="ph"><h2>Dalë për (referenca)</h2></div>${d.references.length ? `<table><thead><tr><th>Referenca</th><th class="num">Rreshta</th><th class="num">Sasia</th></tr></thead><tbody>${d.references.map(r => `<tr><td>${esc(r.reference)}</td><td class="num">${r.lines}</td><td class="num">${fmt(r.qty)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Pa dalje në këtë periudhë.</div>'}</section>
+      <section class="panel"><div class="ph"><h2>Stoku sipas lokacionit dhe lotit</h2></div>${d.lots.length ? `<table><thead><tr><th>Lokacioni</th><th>Loti / nr. i shkrirjes</th><th class="num">Sasia</th></tr></thead><tbody>${d.lots.map(r => `<tr><td>${esc(r.location)}</td><td>${esc(r.lot) || '<span class="muted">Pa lot</span>'}</td><td class="num">${fmt(r.qty)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Pa stok.</div>'}
+        ${d.people.length ? `<table style="border-top:1px solid var(--line)"><thead><tr><th>Regjistruar nga</th><th class="num">Rreshta</th><th class="num">Dalë</th></tr></thead><tbody>${d.people.map(r => `<tr><td>${esc(r.operator)}</td><td class="num">${r.lines}</td><td class="num">${fmt(r.issued)}</td></tr>`).join('')}</tbody></table>` : ''}</section>
     </div>
-    <details class="how"><summary>How the forecast works</summary><ul>
-      <li>Weekly issues are smoothed with Holt's method, which follows both the level and the trend of demand.</li>
-      <li>The likely range is where 8 out of 10 weeks are expected to fall, based on how far past forecasts missed. It widens further ahead.</li>
-      <li>The current, unfinished week is not used for the forecast.</li></ul></details>`;
-  $('#afrange').textContent = `${shortD(d.period.start)} to ${shortD(d.period.end)}`;
+    <details class="how"><summary>Si funksionon parashikimi</summary><ul>
+      <li>Daljet javore zbuten me metodën e Holt-it, e cila ndjek nivelin dhe trendin e kërkesës.</li>
+      <li>Diapazoni i mundshëm është aty ku pritet të bien 8 nga 10 javë, bazuar në sa kanë gabuar parashikimet e kaluara. Zgjerohet sa më larg në kohë.</li>
+      <li>Java aktuale, e papërfunduar, nuk përdoret për parashikim.</li></ul></details>`;
+  $('#afrange').textContent = `${shortD(d.period.start)} deri ${shortD(d.period.end)}`;
   stockLineChart($('#pchart1'), d.daily, p.min_stock, p.unit);
   forecastChart($('#pchart2'), d.weekly, d.forecast, p.unit);
-  barsChart($('#pchart3'), d.weekday.map(w => w.day), [{ label: `Issued (${p.unit})`, color: 'var(--accent)', values: d.weekday.map(w => w.qty) }], { height: 160, every: 1 });
-  barsChart($('#pchart4'), d.months.map(m => new Date(m.month + '-01').toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })), [{ label: `Issued (${p.unit})`, color: 'var(--accent)', values: d.months.map(m => m.qty) }], { height: 160 });
+  barsChart($('#pchart3'), d.weekday.map(w => w.day), [{ label: `Dalë (${UNIT(p.unit)})`, color: 'var(--accent)', values: d.weekday.map(w => w.qty) }], { height: 160, every: 1 });
+  barsChart($('#pchart4'), d.months.map(m => sqDate(m.month + '-01', 'my')), [{ label: `Dalë (${UNIT(p.unit)})`, color: 'var(--accent)', values: d.months.map(m => m.qty) }], { height: 160 });
   bindAf(f, 'vinex.pf', viewAnProduct);
   $('#anp').onchange = e => { const q = findProduct(e.target.value); if (q) { state.anProduct = q.id; viewAnProduct(); } };
-  $('[data-csv]').onclick = () => downloadCSV(`product-${p.sku}.csv`, ['Date', 'Issued', 'Received', 'Stock at end of day'], d.daily.map(x => [x.date, x.issued, x.received, x.stock]));
+  $('[data-csv]').onclick = () => downloadCSV(`product-${p.sku}.csv`, ['Data', 'Dalë', 'Pranuar', 'Stoku në fund të ditës'], d.daily.map(x => [x.date, x.issued, x.received, x.stock]));
 }
 
 async function viewAnActivity() {
@@ -1286,54 +1307,54 @@ async function viewAnActivity() {
   const max = Math.max(1, ...d.heatmap.flat());
   const shade = v => v ? `background:rgba(29,122,72,${(0.15 + 0.85 * v / max).toFixed(2)});color:${v / max > .5 ? '#fff' : 'var(--ink)'}` : '';
   const heat = `<div class="heat" style="--hours:${hours.length}"><div></div>${hours.map(h => `<div>${h}</div>`).join('')}
-    ${d.heatmap.map((row, i) => `<div class="hl">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</div>${hours.map(h => `<div class="c" style="${shade(row[h])}" title="${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]} ${h}:00, ${row[h]} lines">${row[h] || ''}</div>`).join('')}`).join('')}</div>`;
+    ${d.heatmap.map((row, i) => `<div class="hl">${['Hën', 'Mar', 'Mër', 'Enj', 'Pre', 'Sht', 'Die'][i]}</div>${hours.map(h => `<div class="c" style="${shade(row[h])}" title="${['Hën', 'Mar', 'Mër', 'Enj', 'Pre', 'Sht', 'Die'][i]} ${h}:00, ${row[h]} rreshta">${row[h] || ''}</div>`).join('')}`).join('')}</div>`;
   const off = d.heatmap.reduce((n, row) => n + row.slice(0, 5).concat(row.slice(22)).reduce((a, b) => a + b, 0), 0);
-  $('#view').innerHTML = phead('Warehouse activity', `${fmt(t.all)} movement lines`, csvBtn) + afBar(f) + `
+  $('#view').innerHTML = phead('Aktiviteti i magazinës', `${fmt(t.all)} rreshta lëvizjesh`, csvBtn) + afBar(f) + `
     <div class="strip" style="--n:4">
-      <div><div class="v">${fmt(t.all)}</div><div class="l">Lines: ${fmt(t.issued)} issued, ${fmt(t.received)} received, ${fmt(t.transfer)} transfers, ${fmt(t.stocktake)} counts</div></div>
-      <div><div class="v">${fmt(t.per_active_day)}</div><div class="l">Lines per working day (${t.active_days} days with activity)</div></div>
-      <div><div class="v">${t.busiest_slot ? `${t.busiest_slot.day} ${t.busiest_slot.hour}:00` : '—'}</div><div class="l">Busiest hour${t.busiest_slot ? `, ${t.busiest_slot.lines} lines in the period` : ''}</div></div>
-      <div><div class="v">${d.people.length}</div><div class="l">People booking movements</div></div>
+      <div><div class="v">${fmt(t.all)}</div><div class="l">Rreshta: ${fmt(t.issued)} dalje, ${fmt(t.received)} pranime, ${fmt(t.transfer)} transferime, ${fmt(t.stocktake)} numërime</div></div>
+      <div><div class="v">${fmt(t.per_active_day)}</div><div class="l">Rreshta në ditë pune (${t.active_days} ditë me aktivitet)</div></div>
+      <div><div class="v">${t.busiest_slot ? `${t.busiest_slot.day} ${t.busiest_slot.hour}:00` : '—'}</div><div class="l">Ora më e ngarkuar${t.busiest_slot ? `, ${t.busiest_slot.lines} rreshta në periudhë` : ''}</div></div>
+      <div><div class="v">${d.people.length}</div><div class="l">Persona që regjistrojnë lëvizje</div></div>
     </div>
-    <section class="panel" style="margin-bottom:14px"><div class="ph"><h2>When stock is moved, by weekday and hour</h2></div><div class="pb tablewrap">${heat}
-      ${off ? `<p class="muted small" style="margin:8px 0 0">${off} lines were booked outside 05:00 to 22:00 and are not shown.</p>` : ''}</div></section>
-    <section class="panel" style="margin-bottom:14px"><div class="ph"><h2>Lines per day</h2></div><div class="pb" id="acchart"></div></section>
+    <section class="panel" style="margin-bottom:14px"><div class="ph"><h2>Kur lëviz stoku, sipas ditës dhe orës</h2></div><div class="pb tablewrap">${heat}
+      ${off ? `<p class="muted small" style="margin:8px 0 0">${off} rreshta u regjistruan jashtë orarit 05:00 deri 22:00 dhe nuk shfaqen.</p>` : ''}</div></section>
+    <section class="panel" style="margin-bottom:14px"><div class="ph"><h2>Rreshta në ditë</h2></div><div class="pb" id="acchart"></div></section>
     <div class="cols">
-      <section class="panel"><div class="ph"><h2>By person</h2></div>${d.people.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Person</th><th class="num">Lines</th><th class="num">Issued</th><th class="num">Received</th><th class="num">Counts</th><th class="num">Reversals</th><th>Last</th></tr></thead><tbody>
-        ${d.people.map(r => `<tr><td class="strong">${esc(r.operator)}</td><td data-label="Lines" class="num">${fmt(r.lines)}</td><td data-label="Issued" class="num ${r.issued ? 'outq' : 'muted'}">${fmt(r.issued)}</td><td data-label="Received" class="num ${r.received ? 'in' : 'muted'}">${fmt(r.received)}</td><td data-label="Counts" class="num">${fmt(r.stocktakes)}</td><td data-label="Reversals" class="num ${r.reversals ? 'adj' : ''}">${fmt(r.reversals)}</td><td data-label="Last" class="small muted">${esc(when(r.last))}</td></tr>`).join('')}
-        </tbody></table></div>` : '<div class="empty">No movements in this period.</div>'}</section>
-      <section class="panel"><div class="ph"><h2>By location</h2></div>${d.locations.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Location</th><th class="num">Lines</th><th class="num">Value in</th><th class="num">Value out</th></tr></thead><tbody>
-        ${d.locations.map(r => `<tr><td class="strong">${esc(r.location)}</td><td data-label="Lines" class="num">${fmt(r.lines)}</td><td data-label="Value in" class="num ${r.value_in ? 'in' : 'muted'}">${money(r.value_in)}</td><td data-label="Value out" class="num ${r.value_out ? 'outq' : 'muted'}">${money(r.value_out)}</td></tr>`).join('')}
-        </tbody></table></div>` : '<div class="empty">No movements in this period.</div>'}</section>
+      <section class="panel"><div class="ph"><h2>Sipas personit</h2></div>${d.people.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Personi</th><th class="num">Rreshta</th><th class="num">Dalë</th><th class="num">Pranuar</th><th class="num">Numërime</th><th class="num">Stornime</th><th>E fundit</th></tr></thead><tbody>
+        ${d.people.map(r => `<tr><td class="strong">${esc(r.operator)}</td><td data-label="Rreshta" class="num">${fmt(r.lines)}</td><td data-label="Dalë" class="num ${r.issued ? 'outq' : 'muted'}">${fmt(r.issued)}</td><td data-label="Pranuar" class="num ${r.received ? 'in' : 'muted'}">${fmt(r.received)}</td><td data-label="Numërime" class="num">${fmt(r.stocktakes)}</td><td data-label="Stornime" class="num ${r.reversals ? 'adj' : ''}">${fmt(r.reversals)}</td><td data-label="E fundit" class="small muted">${esc(when(r.last))}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="empty">Pa lëvizje në këtë periudhë.</div>'}</section>
+      <section class="panel"><div class="ph"><h2>Sipas lokacionit</h2></div>${d.locations.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Lokacioni</th><th class="num">Rreshta</th><th class="num">Vlera hyrëse</th><th class="num">Vlera dalëse</th></tr></thead><tbody>
+        ${d.locations.map(r => `<tr><td class="strong">${esc(r.location)}</td><td data-label="Rreshta" class="num">${fmt(r.lines)}</td><td data-label="Vlera hyrëse" class="num ${r.value_in ? 'in' : 'muted'}">${money(r.value_in)}</td><td data-label="Vlera dalëse" class="num ${r.value_out ? 'outq' : 'muted'}">${money(r.value_out)}</td></tr>`).join('')}
+        </tbody></table></div>` : '<div class="empty">Pa lëvizje në këtë periudhë.</div>'}</section>
     </div>`;
-  barsChart($('#acchart'), d.daily.map(x => new Date(x.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })),
-    [{ label: 'Issued', color: '#c0392b', values: d.daily.map(x => x.issued) }, { label: 'Received', color: '#1d7a48', values: d.daily.map(x => x.received) },
-     { label: 'Transfers', color: '#b4bec8', values: d.daily.map(x => x.transfer) }, { label: 'Stocktake counts', color: '#d9a21b', values: d.daily.map(x => x.stocktake) }], { stacked: true, height: 170 });
+  barsChart($('#acchart'), d.daily.map(x => sqDate(x.date, 'dm')),
+    [{ label: 'Dalë', color: '#c0392b', values: d.daily.map(x => x.issued) }, { label: 'Pranuar', color: '#1d7a48', values: d.daily.map(x => x.received) },
+     { label: 'Transferime', color: '#b4bec8', values: d.daily.map(x => x.transfer) }, { label: 'Numërime inventari', color: '#d9a21b', values: d.daily.map(x => x.stocktake) }], { stacked: true, height: 170 });
   bindAf(f, 'vinex.af', viewAnActivity);
-  $('[data-csv]').onclick = () => downloadCSV('warehouse-activity.csv', ['Date', 'Issued', 'Received', 'Transfers', 'Stocktake counts'], d.daily.map(x => [x.date, x.issued, x.received, x.transfer, x.stocktake]));
+  $('[data-csv]').onclick = () => downloadCSV('warehouse-activity.csv', ['Data', 'Dalë', 'Pranuar', 'Transferime', 'Numërime inventari'], d.daily.map(x => [x.date, x.issued, x.received, x.transfer, x.stocktake]));
 }
 
 async function viewAnStocktake() {
   const f = state.af, d = await api('/analytics/stocktake?' + afQuery(f)), s = d.summary;
-  const group = (title, rows) => `<section class="panel"><div class="ph"><h2>${title}</h2></div>${rows.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th></th><th class="num">Counts</th><th class="num">Accuracy</th><th class="num">Lost</th><th class="num">Found</th><th class="num">Net</th></tr></thead><tbody>
-    ${rows.map(r => `<tr><td class="strong">${esc(r.name)}</td><td data-label="Counts" class="num">${r.counts}</td><td data-label="Accuracy" class="num">${fmt(r.accuracy)}%</td><td data-label="Lost" class="num outq">${r.loss ? money(r.loss) : '—'}</td><td data-label="Found" class="num in">${r.gain ? money(r.gain) : '—'}</td><td data-label="Net" class="num strong">${money(r.net)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No counts.</div>'}</section>`;
-  $('#view').innerHTML = phead('Stocktake accuracy', `${s.counts} counts`, csvBtn + (canMove() ? ` <button class="btn primary" onclick="movementDialog('ADJUST')">${icon('clip')}New count</button>` : '')) + afBar(f) + (!s.counts
-    ? `<section class="panel"><div class="empty"><b>No stocktake counts in this period</b>Counts are booked with Stocktake count (Stock list, More). Every count is recorded, also when it matches, so accuracy can be measured.</div></section>` : `
+  const group = (title, rows) => `<section class="panel"><div class="ph"><h2>${title}</h2></div>${rows.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th></th><th class="num">Numërime</th><th class="num">Saktësia</th><th class="num">Mungesë</th><th class="num">Tepricë</th><th class="num">Neto</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td class="strong">${esc(r.name)}</td><td data-label="Numërime" class="num">${r.counts}</td><td data-label="Saktësia" class="num">${fmt(r.accuracy)}%</td><td data-label="Mungesë" class="num outq">${r.loss ? money(r.loss) : '—'}</td><td data-label="Tepricë" class="num in">${r.gain ? money(r.gain) : '—'}</td><td data-label="Neto" class="num strong">${money(r.net)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Pa numërime.</div>'}</section>`;
+  $('#view').innerHTML = phead('Saktësia e inventarizimit', `${s.counts} numërime`, csvBtn + (canMove() ? ` <button class="btn primary" onclick="movementDialog('ADJUST')">${icon('clip')}Numërim i ri</button>` : '')) + afBar(f) + (!s.counts
+    ? `<section class="panel"><div class="empty"><b>Pa numërime inventari në këtë periudhë</b>Numërimet regjistrohen me Inventarizim (Lista e stokut, Më shumë). Çdo numërim ruhet, edhe kur përputhet, që të matet saktësia.</div></section>` : `
     <div class="strip" style="--n:4">
-      <div class="${s.accuracy < 90 ? 'warn' : ''}"><div class="v">${fmt(s.accuracy)}%</div><div class="l">Counts that matched the system (${s.exact} of ${s.counts})</div></div>
-      <div class="${s.loss ? 'bad' : ''}"><div class="v">${money(s.loss)}</div><div class="l">Value missing at counts</div></div>
-      <div><div class="v">${money(s.gain)}</div><div class="l">Value found at counts</div></div>
-      <div><div class="v">${money(s.net)}</div><div class="l">Net difference, ${s.products} products counted</div></div>
+      <div class="${s.accuracy < 90 ? 'warn' : ''}"><div class="v">${fmt(s.accuracy)}%</div><div class="l">Numërime që u përputhën me sistemin (${s.exact} nga ${s.counts})</div></div>
+      <div class="${s.loss ? 'bad' : ''}"><div class="v">${money(s.loss)}</div><div class="l">Vlera që mungon në numërime</div></div>
+      <div><div class="v">${money(s.gain)}</div><div class="l">Vlera e tepërt në numërime</div></div>
+      <div><div class="v">${money(s.net)}</div><div class="l">Diferenca neto, ${s.products} artikuj të numëruar</div></div>
     </div>
-    <div class="cols" style="margin-bottom:14px">${group('By location', d.by_location)}${group('By person who counted', d.by_person)}</div>
-    <section class="panel" style="margin-bottom:14px"><div class="ph"><h2>Products with the largest differences</h2></div><div class="tablewrap"><table class="cards"><thead><tr><th>Product</th><th class="num">Counts</th><th class="num">Accuracy</th><th class="num">Total difference</th><th class="num">Net value</th></tr></thead><tbody>
-      ${d.by_product.map(r => `<tr class="click" onclick="openProduct(${r.id})"><td><div class="sku">${esc(r.name)}</div><div class="sub">${esc(r.product)}</div></td><td data-label="Counts" class="num">${r.counts}</td><td data-label="Accuracy" class="num">${fmt(r.accuracy)}%</td><td data-label="Total difference" class="num">${fmt(r.abs_qty_diff)}<span class="unit">${esc(r.unit)}</span></td><td data-label="Net value" class="num strong ${r.net < 0 ? 'outq' : r.net > 0 ? 'in' : ''}">${money(r.net)}</td></tr>`).join('')}
+    <div class="cols" style="margin-bottom:14px">${group('Sipas lokacionit', d.by_location)}${group('Sipas personit që numëroi', d.by_person)}</div>
+    <section class="panel" style="margin-bottom:14px"><div class="ph"><h2>Artikujt me diferencat më të mëdha</h2></div><div class="tablewrap"><table class="cards"><thead><tr><th>Artikulli</th><th class="num">Numërime</th><th class="num">Saktësia</th><th class="num">Diferenca totale</th><th class="num">Vlera neto</th></tr></thead><tbody>
+      ${d.by_product.map(r => `<tr class="click" onclick="openProduct(${r.id})"><td><div class="sku">${esc(r.name)}</div><div class="sub">${esc(r.product)}</div></td><td data-label="Numërime" class="num">${r.counts}</td><td data-label="Saktësia" class="num">${fmt(r.accuracy)}%</td><td data-label="Diferenca totale" class="num">${fmt(r.abs_qty_diff)}<span class="unit">${esc(UNIT(r.unit))}</span></td><td data-label="Vlera neto" class="num strong ${r.net < 0 ? 'outq' : r.net > 0 ? 'in' : ''}">${money(r.net)}</td></tr>`).join('')}
     </tbody></table></div></section>
-    <section class="panel"><div class="ph"><h2>Counts that did not match</h2></div>${d.differences.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>When</th><th>Product</th><th>Location</th><th>Lot</th><th class="num">System</th><th class="num">Counted</th><th class="num">Difference</th><th class="num">Value</th><th>By</th></tr></thead><tbody>
-      ${d.differences.map(r => `<tr><td data-label="When" class="small muted">${esc(when(r.date))}</td><td data-label="Product"><span class="sku">${esc(r.sku)}</span></td><td data-label="Location">${esc(r.location)}</td><td data-label="Lot">${esc(r.lot)}</td><td data-label="System" class="num">${fmt(r.system)}</td><td data-label="Counted" class="num">${fmt(r.counted)}</td><td data-label="Difference" class="num strong ${r.diff < 0 ? 'outq' : 'in'}">${signed(r.diff)}</td><td data-label="Value" class="num">${money(r.value)}</td><td data-label="By" class="small">${esc(r.operator)}</td></tr>`).join('')}
-    </tbody></table></div>` : '<div class="empty"><b>Every count matched</b></div>'}</section>`);
+    <section class="panel"><div class="ph"><h2>Numërimet që nuk përputhen</h2></div>${d.differences.length ? `<div class="tablewrap"><table class="cards"><thead><tr><th>Kur</th><th>Artikulli</th><th>Lokacioni</th><th>Loti</th><th class="num">Sistemi</th><th class="num">Numëruar</th><th class="num">Diferenca</th><th class="num">Vlera</th><th>Nga</th></tr></thead><tbody>
+      ${d.differences.map(r => `<tr><td data-label="Kur" class="small muted">${esc(when(r.date))}</td><td data-label="Artikulli"><span class="sku">${esc(r.sku)}</span></td><td data-label="Lokacioni">${esc(r.location)}</td><td data-label="Loti">${esc(r.lot)}</td><td data-label="Sistemi" class="num">${fmt(r.system)}</td><td data-label="Numëruar" class="num">${fmt(r.counted)}</td><td data-label="Diferenca" class="num strong ${r.diff < 0 ? 'outq' : 'in'}">${signed(r.diff)}</td><td data-label="Vlera" class="num">${money(r.value)}</td><td data-label="Nga" class="small">${esc(r.operator)}</td></tr>`).join('')}
+    </tbody></table></div>` : '<div class="empty"><b>Çdo numërim u përputh</b></div>'}</section>`);
   bindAf(f, 'vinex.af', viewAnStocktake);
-  $('[data-csv]').onclick = () => downloadCSV('stocktake-differences.csv', ['Date', 'SKU', 'Name', 'Location', 'Lot', 'System', 'Counted', 'Difference', 'Value (EUR)', 'By'], d.differences.map(r => [r.date, r.sku, r.name, r.location, r.lot, r.system, r.counted, r.diff, r.value, r.operator]));
+  $('[data-csv]').onclick = () => downloadCSV('stocktake-differences.csv', ['Data', 'Shifra', 'Emërtimi', 'Lokacioni', 'Loti', 'Sistemi', 'Numëruar', 'Diferenca', 'Vlera (EUR)', 'Nga'], d.differences.map(r => [r.date, r.sku, r.name, r.location, r.lot, r.system, r.counted, r.diff, r.value, r.operator]));
 }
 
 const VIEWS = { dashboard: viewDashboard, stock: viewStock,

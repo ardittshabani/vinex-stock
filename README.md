@@ -44,7 +44,7 @@ Every movement records the signed-in user. Passwords are hashed; 5 wrong attempt
 
 ## What it does
 
-- **Products** – SKU, name, category, spec, unit, minimum stock, unit cost, unit (kg, the default, or pcs counted in whole numbers), optional barcode / QR value, optional Prodata code.
+- **Products** – SKU, name, category, spec, unit, minimum stock, unit cost, unit (kg, the default, or pcs counted in whole numbers; with the weight of 1,000 pieces every table shows both units), optional barcode / QR value, optional Prodata code.
 - **Locations** – warehouse zones, raw-material store, packing area, racks/bins.
 - **Movements** – Receive, Issue, Transfer, Stocktake (enter the counted quantity; the app books the difference), with lot / heat number and reference.
 - **Safety checks** – cannot issue more than is on hand (per location and per lot); transfers are all-or-nothing; two people saving at once can't both take the last box.
@@ -70,6 +70,10 @@ Quantities are never edited directly: each is the sum of an append-only movement
 | `test_app.py` | `python -m unittest test_app -v` |
 | `Procfile` | Start command for Railway |
 | `static/vendor/` | html5-qrcode (Apache-2.0) for scanning, loaded only when you tap Scan; IBM Plex Sans (OFL) |
+
+## Language
+
+The interface, server messages and CSV exports are in Albanian. Dates are shown as "26 nën 2026", numbers as 12.791,50 and amounts as 38.816,15 €.
 
 ## Install as an app
 

@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS products(
     barcode TEXT,
     material_id INTEGER REFERENCES products(id),
     material_per_1000 REAL,
+    kg_per_1000 REAL,
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -188,7 +189,8 @@ def init_db():
     for table, column, ddl in (("products", "barcode", "ALTER TABLE products ADD COLUMN barcode TEXT"),
                                ("movements", "reversal_of", "ALTER TABLE movements ADD COLUMN reversal_of INTEGER"),
                                ("products", "material_id", "ALTER TABLE products ADD COLUMN material_id INTEGER REFERENCES products(id)"),
-                               ("products", "material_per_1000", "ALTER TABLE products ADD COLUMN material_per_1000 REAL")):
+                               ("products", "material_per_1000", "ALTER TABLE products ADD COLUMN material_per_1000 REAL"),
+                               ("products", "kg_per_1000", "ALTER TABLE products ADD COLUMN kg_per_1000 REAL")):
         if column not in {r["name"] for r in db.execute(f"PRAGMA table_info({table})")}:
             db.execute(ddl)
     db.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_products_barcode ON products(barcode) WHERE barcode IS NOT NULL")
@@ -228,21 +230,21 @@ def handle_api_error(e):
 def num(value, field, minimum=None, required=True):
     if value is None or value == "":
         if required:
-            raise ApiError(f"{field} is required")
+            raise ApiError(f"{field}: fusha është e detyrueshme")
         return None
     try:
         v = round(float(value), 3)
     except (TypeError, ValueError):
-        raise ApiError(f"{field} must be a number")
+        raise ApiError(f"{field} duhet të jetë numër")
     if minimum is not None and v < minimum:
-        raise ApiError(f"{field} must be at least {minimum}")
+        raise ApiError(f"{field} duhet të jetë së paku {minimum:g}")
     return v
 
 
 def text(payload, key, required=False, default=""):
     v = str(payload.get(key) if payload.get(key) is not None else default).strip()
     if required and not v:
-        raise ApiError(f"{key} is required")
+        raise ApiError(f"{key}: fusha është e detyrueshme")
     return v
 
 
@@ -268,18 +270,18 @@ def insert_movement(db, product_id, location_id, kind, qty, lot, reference, note
 def require_product(db, product_id):
     p = db.execute("SELECT * FROM products WHERE id=?", (product_id,)).fetchone()
     if not p:
-        raise ApiError("Product not found", 404)
+        raise ApiError("Artikulli nuk u gjet", 404)
     if not p["active"]:
-        raise ApiError("Product is inactive")
+        raise ApiError("Artikulli është joaktiv")
     return p
 
 
-def require_location(db, location_id, label="location"):
+def require_location(db, location_id, label="Lokacioni"):
     loc = db.execute("SELECT * FROM locations WHERE id=?", (location_id,)).fetchone()
     if not loc:
-        raise ApiError(f"{label} not found", 404)
+        raise ApiError(f"{label} nuk u gjet", 404)
     if not loc["active"]:
-        raise ApiError(f"{label} is inactive")
+        raise ApiError(f"{label} është joaktiv")
     return loc
 
 
@@ -363,14 +365,14 @@ def unit_of(payload, current=None):
         return UNITS[raw]
     if current and raw == current.lower():
         return current
-    raise ApiError("Unit must be kg or pcs (pieces)")
+    raise ApiError("Njësia duhet të jetë kg ose copë")
 
 
-def check_whole(db, pid, qty, label="Quantity"):
+def check_whole(db, pid, qty, label="Sasia"):
     """Products counted in pieces take whole numbers only."""
     unit = db.execute("SELECT unit FROM products WHERE id=?", (pid,)).fetchone()["unit"]
     if unit == "pcs" and qty is not None and abs(qty - round(qty)) > 1e-9:
-        raise ApiError(f"{label} must be a whole number for products counted in pieces")
+        raise ApiError(f"{label} duhet të jetë numër i plotë për artikujt që numërohen në copë")
 
 
 def product_fields(payload, current_unit=None):
@@ -380,10 +382,12 @@ def product_fields(payload, current_unit=None):
         "category": text(payload, "category"),
         "spec": text(payload, "spec"),
         "unit": unit_of(payload, current_unit),
-        "min_stock": num(payload.get("min_stock", 0) or 0, "min_stock", 0),
-        "unit_cost": num(payload.get("unit_cost"), "unit_cost", 0, required=False),
+        "min_stock": num(payload.get("min_stock", 0) or 0, "Stoku minimal", 0),
+        "unit_cost": num(payload.get("unit_cost"), "Kostoja për njësi", 0, required=False),
         "prodata_code": text(payload, "prodata_code") or None,
         "barcode": text(payload, "barcode") or None,
+        # weight of 1,000 pieces in kg: lets every table show both units (copë and kg)
+        "kg_per_1000": num(payload.get("kg_per_1000"), "Pesha për 1.000 copë", 0, required=False) or None,
     }
 
 
@@ -398,19 +402,19 @@ def set_material(db, pid, payload):
         return
     m = db.execute("SELECT id FROM products WHERE lower(sku)=lower(?)", (sku,)).fetchone()
     if not m:
-        raise ApiError(f"Raw material '{sku}' is not a product. Add it as a product first.")
+        raise ApiError(f"Lënda e parë '{sku}' nuk është artikull. Shtojeni së pari si artikull.")
     if m["id"] == pid:
-        raise ApiError("A product can't be made from itself")
+        raise ApiError("Një artikull nuk mund të prodhohet nga vetvetja")
     if db.execute("SELECT 1 FROM products WHERE id=? AND material_id=?", (m["id"], pid)).fetchone():
-        raise ApiError(f"'{sku}' is itself made from this product")
-    per = num(payload.get("material_per_1000"), "Amount per 1,000", 0)
+        raise ApiError(f"'{sku}' prodhohet nga ky artikull")
+    per = num(payload.get("material_per_1000"), "Sasia e lëndës për 1.000", 0)
     if per <= 0:
-        raise ApiError("Amount of material per 1,000 must be more than 0")
+        raise ApiError("Sasia e lëndës për 1.000 duhet të jetë më e madhe se 0")
     db.execute("UPDATE products SET material_id=?, material_per_1000=? WHERE id=?", (m["id"], per, pid))
 
 
 def duplicate_message(e, f):
-    return f"Barcode '{f['barcode']}' is already used by another product" if "barcode" in str(e).lower() else f"SKU '{f['sku']}' already exists"
+    return f"Barkodi '{f['barcode']}' përdoret nga një artikull tjetër" if "barcode" in str(e).lower() else f"Shifra '{f['sku']}' ekziston"
 
 
 @app.post("/api/products")
@@ -421,8 +425,8 @@ def create_product():
     db.execute("BEGIN IMMEDIATE")
     try:
         cur = db.execute(
-            """INSERT INTO products(sku,name,category,spec,unit,min_stock,unit_cost,prodata_code,barcode)
-               VALUES (:sku,:name,:category,:spec,:unit,:min_stock,:unit_cost,:prodata_code,:barcode)""",
+            """INSERT INTO products(sku,name,category,spec,unit,min_stock,unit_cost,prodata_code,barcode,kg_per_1000)
+               VALUES (:sku,:name,:category,:spec,:unit,:min_stock,:unit_cost,:prodata_code,:barcode,:kg_per_1000)""",
             f,
         )
         set_material(db, cur.lastrowid, payload)
@@ -440,20 +444,22 @@ def create_product():
 def update_product(pid):
     db = get_db()
     payload = request.get_json(force=True) or {}
-    cur_row = db.execute("SELECT unit FROM products WHERE id=?", (pid,)).fetchone()
+    cur_row = db.execute("SELECT unit, kg_per_1000 FROM products WHERE id=?", (pid,)).fetchone()
     f = product_fields(payload, cur_row["unit"] if cur_row else None)
+    if "kg_per_1000" not in payload and cur_row:
+        f["kg_per_1000"] = cur_row["kg_per_1000"]
     f["id"] = pid
     f["active"] = 1 if payload.get("active", True) else 0
     db.execute("BEGIN IMMEDIATE")
     try:
         cur = db.execute(
             """UPDATE products SET sku=:sku,name=:name,category=:category,spec=:spec,unit=:unit,
-               min_stock=:min_stock,unit_cost=:unit_cost,prodata_code=:prodata_code,barcode=:barcode,active=:active
-               WHERE id=:id""",
+               min_stock=:min_stock,unit_cost=:unit_cost,prodata_code=:prodata_code,barcode=:barcode,active=:active,
+               kg_per_1000=:kg_per_1000 WHERE id=:id""",
             f,
         )
         if cur.rowcount == 0:
-            raise ApiError("Product not found", 404)
+            raise ApiError("Artikulli nuk u gjet", 404)
         set_material(db, pid, payload)
         db.execute("COMMIT")
     except sqlite3.IntegrityError as e:
@@ -476,15 +482,15 @@ def delete_product(pid):
     try:
         p = db.execute("SELECT sku, name FROM products WHERE id=?", (pid,)).fetchone()
         if not p:
-            raise ApiError("Product not found", 404)
+            raise ApiError("Artikulli nuk u gjet", 404)
         made = [r["sku"] for r in db.execute("SELECT sku FROM products WHERE material_id=? ORDER BY sku", (pid,))]
         if made:
-            raise ApiError(f"'{p['sku']}' is the raw material of {', '.join(made[:5])}{'...' if len(made) > 5 else ''}. "
-                           "Clear \"Made from\" on those products first", 409)
+            raise ApiError(f"'{p['sku']}' është lënda e parë e {', '.join(made[:5])}{'...' if len(made) > 5 else ''}. "
+                           "Hiqni së pari \"Prodhohet nga\" te ata artikuj", 409)
         moves = db.execute("SELECT COUNT(*) FROM movements WHERE product_id=?", (pid,)).fetchone()[0]
         if moves and not with_history:
-            err = ApiError(f"'{p['sku']}' has {moves} stock movement{'s' if moves != 1 else ''}. "
-                           "Deactivate it instead, or delete it together with its history", 409)
+            err = ApiError(f"'{p['sku']}' ka {moves} lëvizje stoku. "
+                           "Çaktivizojeni, ose fshijeni bashkë me historikun", 409)
             err.extra = {"movements": moves}
             raise err
         db.execute("DELETE FROM counts WHERE product_id=?", (pid,))
@@ -502,7 +508,7 @@ def lookup():
     """Find a product from a scanned code: barcode first, then SKU, then Prodata code."""
     code = request.args.get("code", "").strip()
     if not code:
-        raise ApiError("code is required")
+        raise ApiError("Kodi është i detyrueshëm")
     p = get_db().execute(
         """SELECT id, sku, name, unit FROM products
            WHERE active=1 AND (barcode=? OR lower(sku)=lower(?) OR lower(prodata_code)=lower(?))
@@ -510,7 +516,7 @@ def lookup():
         (code, code, code, code),
     ).fetchone()
     if not p:
-        raise ApiError(f"No product matches '{code}'", 404)
+        raise ApiError(f"Asnjë artikull nuk përputhet me '{code}'", 404)
     return jsonify(dict(p))
 
 
@@ -528,7 +534,7 @@ def create_location():
     try:
         cur = db.execute("INSERT INTO locations(name) VALUES (?)", (name,))
     except sqlite3.IntegrityError:
-        raise ApiError(f"Location '{name}' already exists", 409)
+        raise ApiError(f"Lokacioni '{name}' ekziston", 409)
     return jsonify(id=cur.lastrowid), 201
 
 
@@ -541,13 +547,13 @@ def update_location(lid):
     if not active:
         on_hand = db.execute("SELECT COALESCE(SUM(qty),0) FROM movements WHERE location_id=?", (lid,)).fetchone()[0]
         if abs(on_hand) > 0.0005:
-            raise ApiError("Location still holds stock - transfer it out before deactivating")
+            raise ApiError("Lokacioni ka ende stok - transferojeni para se ta çaktivizoni")
     try:
         cur = db.execute("UPDATE locations SET name=?, active=? WHERE id=?", (name, active, lid))
     except sqlite3.IntegrityError:
-        raise ApiError(f"Location '{name}' already exists", 409)
+        raise ApiError(f"Lokacioni '{name}' ekziston", 409)
     if cur.rowcount == 0:
-        raise ApiError("Location not found", 404)
+        raise ApiError("Lokacioni nuk u gjet", 404)
     return jsonify(ok=True)
 
 
@@ -641,7 +647,7 @@ def post_movement():
     d = request.get_json(force=True) or {}
     kind = text(d, "kind", required=True).upper()
     if kind not in ("IN", "OUT", "TRANSFER", "ADJUST"):
-        raise ApiError("Unknown movement type")
+        raise ApiError("Lloj i panjohur lëvizjeje")
     lot, reference, note = (text(d, k) for k in ("lot", "reference", "note"))
     operator = g.user["username"]  # taken from the login, not from the request
     pid, lid = d.get("product_id"), d.get("location_id")
@@ -649,38 +655,38 @@ def post_movement():
     db.execute("BEGIN IMMEDIATE")  # serialise writers so two people can't both take the last box
     try:
         require_product(db, pid)
-        require_location(db, lid, "Location")
+        require_location(db, lid, "Lokacioni")
 
         if kind == "IN":
-            qty = num(d.get("qty"), "Quantity", 0.001)
+            qty = num(d.get("qty"), "Sasia", 0.001)
             check_whole(db, pid, qty)
             insert_movement(db, pid, lid, "IN", qty, lot, reference, note, operator)
 
         elif kind == "OUT":
-            qty = num(d.get("qty"), "Quantity", 0.001)
+            qty = num(d.get("qty"), "Sasia", 0.001)
             check_whole(db, pid, qty)
             have = balance(db, pid, lid, lot)
             if qty > have + 1e-9:
-                raise ApiError(f"Not enough stock{' in lot ' + lot if lot else ''}: {have:g} available, {qty:g} requested")
+                raise ApiError(f"Stok i pamjaftueshëm{' në lotin ' + lot if lot else ''}: {have:g} në dispozicion, {qty:g} të kërkuara")
             insert_movement(db, pid, lid, "OUT", -qty, lot, reference, note, operator)
 
         elif kind == "TRANSFER":
-            qty = num(d.get("qty"), "Quantity", 0.001)
+            qty = num(d.get("qty"), "Sasia", 0.001)
             check_whole(db, pid, qty)
             to_id = d.get("to_location_id")
-            require_location(db, to_id, "Destination")
+            require_location(db, to_id, "Lokacioni i destinacionit")
             if int(to_id) == int(lid):
-                raise ApiError("Source and destination must differ")
+                raise ApiError("Lokacioni burimor dhe ai i destinacionit duhet të jenë të ndryshëm")
             have = balance(db, pid, lid, lot)
             if qty > have + 1e-9:
-                raise ApiError(f"Not enough stock{' in lot ' + lot if lot else ''}: {have:g} available, {qty:g} requested")
+                raise ApiError(f"Stok i pamjaftueshëm{' në lotin ' + lot if lot else ''}: {have:g} në dispozicion, {qty:g} të kërkuara")
             tid = uuid.uuid4().hex[:12]
             insert_movement(db, pid, lid, "TRANSFER_OUT", -qty, lot, reference, note, operator, tid)
             insert_movement(db, pid, to_id, "TRANSFER_IN", qty, lot, reference, note, operator, tid)
 
         else:  # ADJUST
-            counted = num(d.get("counted"), "Counted quantity", 0)
-            check_whole(db, pid, counted, "Counted quantity")
+            counted = num(d.get("counted"), "Sasia e numëruar", 0)
+            check_whole(db, pid, counted, "Sasia e numëruar")
             have = balance(db, pid, lid, lot)
             delta = round(counted - have, 3)
             mid = None
@@ -692,7 +698,7 @@ def post_movement():
                        (pid, lid, lot or "", have, counted, mid, operator))
             if mid is None:
                 db.execute("COMMIT")
-                return jsonify(ok=True, changed=False, message="Count matches the system - no adjustment needed")
+                return jsonify(ok=True, changed=False, message="Numërimi përputhet me sistemin - nuk nevojitet korrigjim")
         db.execute("COMMIT")
     except Exception:
         db.execute("ROLLBACK")
@@ -713,13 +719,13 @@ def reverse_movement(mid):
     try:
         m = db.execute("SELECT * FROM movements WHERE id=?", (mid,)).fetchone()
         if not m:
-            raise ApiError("Movement not found", 404)
+            raise ApiError("Lëvizja nuk u gjet", 404)
         if m["reversal_of"] is not None:
-            raise ApiError("A reversal cannot be reversed - book a new movement instead")
+            raise ApiError("Një stornim nuk mund të stornohet - regjistroni një lëvizje të re")
         legs = db.execute("SELECT * FROM movements WHERE transfer_id=?", (m["transfer_id"],)).fetchall() if m["transfer_id"] else [m]
         marks = ",".join("?" * len(legs))
         if db.execute(f"SELECT 1 FROM movements WHERE reversal_of IN ({marks}) LIMIT 1", [r["id"] for r in legs]).fetchone():
-            raise ApiError("This movement has already been reversed")
+            raise ApiError("Kjo lëvizje është stornuar tashmë")
         new_ids = []
         for r in legs:
             note = f"Reversal of #{r['id']}" + (f": {reason}" if reason else "")
@@ -733,7 +739,7 @@ def reverse_movement(mid):
         for r in legs:  # taking stock back out must not push the location or the lot below zero
             if -r["qty"] < 0 and (balance(db, r["product_id"], r["location_id"]) < -1e-9
                                   or (r["lot"] and balance(db, r["product_id"], r["location_id"], r["lot"]) < -1e-9)):
-                raise ApiError("Cannot reverse: that stock has already been used or moved")
+                raise ApiError("Nuk mund të stornohet: ky stok është përdorur ose zhvendosur")
         # a reversed stocktake was a wrong count: leave it out of count accuracy
         db.executemany("DELETE FROM counts WHERE movement_id = ?", [(r["id"],) for r in legs])
         db.execute("COMMIT")
@@ -756,29 +762,43 @@ def csv_response(filename, header, rows):
     )
 
 
+UNIT_SQ = {"pcs": "copë"}
+STATUS_SQ = {"ok": "Në stok", "low": "I ulët", "out": "Pa stok"}
+KIND_SQ = {"IN": "Pranim", "OUT": "Dalje", "ADJUST": "Inventarizim", "TRANSFER_IN": "Transferim hyrje", "TRANSFER_OUT": "Transferim dalje"}
+
+
+def weight_kg(s):
+    """Stock on hand in kg: the quantity itself for kg products, pieces x weight for counted products."""
+    if s["unit"] == "kg":
+        return s["total"]
+    return round(s["total"] * s["kg_per_1000"] / 1000, 3) if s.get("kg_per_1000") else ""
+
+
 @app.get("/api/export/stock.csv")
 def export_stock():
     rows = []
     for s in stock_summary(get_db()):
         locs = "; ".join(f"{x['location']}: {x['qty']:g}" for x in s["locations"])
-        rows.append([s["sku"], s["name"], s["category"], s["spec"], s["unit"], s["total"], s["min_stock"], s["status"], locs, s["unit_cost"] or ""])
-    return csv_response("stock.csv", ["SKU", "Name", "Category", "Spec", "Unit", "On hand", "Min stock", "Status", "By location", "Unit cost"], rows)
+        rows.append([s["sku"], s["name"], s["category"], s["spec"], UNIT_SQ.get(s["unit"], s["unit"]), s["total"], s["min_stock"],
+                     STATUS_SQ.get(s["status"], s["status"]), locs, s["unit_cost"] or "", weight_kg(s)])
+    return csv_response("stock.csv", ["Shifra", "Emërtimi", "Kategoria", "Specifikimi", "Njësia", "Në stok", "Stoku minimal", "Statusi", "Sipas lokacionit", "Kostoja për njësi", "Pesha kg"], rows)
 
 
 @app.get("/api/export/movements.csv")
 def export_movements():
-    rows = [[r["created_at"], r["kind"], r["sku"], r["product"], r["location"], r["qty"], r["unit"], r["lot"], r["reference"], r["note"], r["operator"]]
+    rows = [[r["created_at"], KIND_SQ.get(r["kind"], r["kind"]), r["sku"], r["product"], r["location"], r["qty"], UNIT_SQ.get(r["unit"], r["unit"]),
+             r["lot"], r["reference"], r["note"], r["operator"]]
             for r in query_movements(get_db(), 100000)]
-    return csv_response("movements.csv", ["Date", "Type", "SKU", "Product", "Location", "Qty", "Unit", "Lot", "Reference", "Note", "Operator"], rows)
+    return csv_response("movements.csv", ["Data", "Lloji", "Shifra", "Artikulli", "Lokacioni", "Sasia", "Njësia", "Loti", "Referenca", "Shënimi", "Përdoruesi"], rows)
 
 
 def insights_params():
     lead = request.args.get("lead_days", 14, type=int)
     window = request.args.get("window", 90, type=int)
     if lead is None or not 1 <= lead <= 365:
-        raise ApiError("Lead time must be between 1 and 365 days")
+        raise ApiError("Koha e furnizimit duhet të jetë 1 deri 365 ditë")
     if window is None or not 14 <= window <= 730:
-        raise ApiError("History window must be between 14 and 730 days")
+        raise ApiError("Periudha e historikut duhet të jetë 14 deri 730 ditë")
     return lead, window
 
 
@@ -805,8 +825,8 @@ def export_turnover():
     data = insights.value_and_turnover(db, stock_summary(db), window=window)
     rows = [[r["sku"], r["name"], r["category"], r["value_now"], r["avg_value"], r["issued_value"], r["turnover"], r["days"]]
             for r in data["products"]]
-    return csv_response("turnover.csv", ["SKU", "Name", "Category", "Value now (€)", f"Average value, last {window} days (€)",
-                                         f"Value issued, last {window} days (€)", "Turnover per year", "Days of inventory"], rows)
+    return csv_response("turnover.csv", ["Shifra", "Emërtimi", "Kategoria", "Vlera tani (€)", f"Vlera mesatare, {window} ditët e fundit (€)",
+                                         f"Vlera e dalë, {window} ditët e fundit (€)", "Qarkullimi në vit", "Ditë inventari"], rows)
 
 
 # ---------------------------------------------------------------- analytics module
@@ -819,13 +839,13 @@ def analytics_filter():
         try:
             return date.fromisoformat(v)
         except ValueError:
-            raise ApiError(f"{key} must be a date like 2026-01-31")
+            raise ApiError(f"{key} duhet të jetë datë si 2026-01-31")
     end = day("to", date.today())
     start = day("from", end - timedelta(days=89))
     if start > end:
-        raise ApiError("The start date must be before the end date")
+        raise ApiError("Data e fillimit duhet të jetë para datës së mbarimit")
     if (end - start).days > 1100:
-        raise ApiError("Choose a period of at most 3 years")
+        raise ApiError("Zgjidhni një periudhë deri në 3 vjet")
     return {"start": start, "end": end, "category": request.args.get("category", "").strip() or None,
             "location_id": request.args.get("location_id", type=int)}
 
@@ -843,7 +863,7 @@ def analytics_product(pid):
     db = get_db()
     row = next((s for s in stock_summary(db) if s["id"] == pid), None)
     if row is None:
-        raise ApiError("Product not found", 404)
+        raise ApiError("Artikulli nuk u gjet", 404)
     f = analytics_filter()
     if not request.args.get("from"):
         f["start"] = f["end"] - timedelta(days=364)   # a product's story needs a year by default
@@ -867,14 +887,14 @@ def export_insights():
     db = get_db()
     lead, window = insights_params()
     data = insights.compute(db, stock_summary(db), lead_days=lead, window=window)
-    label = {"order_now": "Order now", "watch": "Watch", "ok": "OK", "no_demand": "No demand"}
-    rows = [[i["sku"], i["name"], i["unit"], label[i["status"]], i["on_hand"], i["avg_daily"], i["cover_days"],
+    label = {"order_now": "Porosit tani", "watch": "Porosit së shpejti", "ok": "Mjafton", "no_demand": "Pa kërkesë"}
+    rows = [[i["sku"], i["name"], UNIT_SQ.get(i["unit"], i["unit"]), label[i["status"]], i["on_hand"], i["avg_daily"], i["cover_days"],
              i["stockout_date"], i["reorder_point"], i["safety_stock"], i["order_qty"], i["forecast_30d"],
              i["trend_pct"], (i["abc"] or "") + (i["xyz"] or ""), i["history_days"]] for i in data["items"]]
-    return csv_response("insights.csv", ["SKU", "Name", "Unit", "Status", "On hand", "Avg issued per day", "Days of stock left",
-                                         "Expected stock-out", "Reorder point", "Safety stock", "Suggested order",
-                                         "Forecast next 30 days", "Trend % (last 4 weeks)", "Class (ABC/XYZ)",
-                                         "Days of history"], rows)
+    return csv_response("insights.csv", ["Shifra", "Emërtimi", "Njësia", "Këshilla", "Në stok", "Dalje mesatare në ditë", "Ditë stoku të mbetura",
+                                         "Mbarimi i pritur", "Pika e riporositjes", "Stoku i sigurisë", "Porosia e sugjeruar",
+                                         "Parashikimi 30 ditët e ardhshme", "Trendi % (4 javët e fundit)", "Klasa (ABC/XYZ)",
+                                         "Ditë historiku"], rows)
 
 
 @app.get("/api/export/reorder.csv")
@@ -883,13 +903,13 @@ def export_reorder():
     rows = [[s["sku"], s["name"], s["unit"], s["total"], s["min_stock"], round(s["min_stock"] - s["total"], 3),
              s["prodata_code"] or "", s["barcode"] or ""]
             for s in stock_summary(get_db()) if s["min_stock"] > 0 and s["total"] <= s["min_stock"]]
-    return csv_response("reorder.csv", ["SKU", "Name", "Unit", "On hand", "Min stock", "Shortfall to minimum", "Prodata code", "Barcode"], rows)
+    return csv_response("reorder.csv", ["Shifra", "Emërtimi", "Njësia", "Në stok", "Stoku minimal", "Mungesa deri te minimumi", "Kodi Prodata", "Barkodi"], rows)
 
 
 def read_csv(payload):
     raw = (payload or {}).get("csv", "")
     if not raw.strip():
-        raise ApiError("The file is empty")
+        raise ApiError("Skedari është bosh")
     reader = csv.DictReader(io.StringIO(raw.lstrip("﻿")))
     reader.fieldnames = [(h or "").strip().lower() for h in (reader.fieldnames or [])]
     return reader
@@ -902,7 +922,7 @@ def import_products():
     db = get_db()
     reader = read_csv(request.get_json(force=True))
     if "sku" not in reader.fieldnames or "name" not in reader.fieldnames:
-        raise ApiError("CSV needs at least the columns: sku, name")
+        raise ApiError("CSV duhet të ketë së paku kolonat: sku, name")
     created = updated = 0
     errors = []
     rows = list(reader)
@@ -910,28 +930,30 @@ def import_products():
     try:
         for i, row in enumerate(rows, start=2):
             try:
-                old = db.execute("SELECT unit FROM products WHERE sku=?", ((row.get("sku") or "").strip(),)).fetchone()
+                old = db.execute("SELECT unit, kg_per_1000 FROM products WHERE sku=?", ((row.get("sku") or "").strip(),)).fetchone()
                 f = product_fields(row, old["unit"] if old else None)
+                if old and "kg_per_1000" not in reader.fieldnames:
+                    f["kg_per_1000"] = old["kg_per_1000"]
                 exists = old
                 if exists:
                     db.execute("""UPDATE products SET name=:name,category=:category,spec=:spec,unit=:unit,min_stock=:min_stock,
-                                  unit_cost=:unit_cost,prodata_code=:prodata_code,barcode=:barcode WHERE sku=:sku""", f)
+                                  unit_cost=:unit_cost,prodata_code=:prodata_code,barcode=:barcode,kg_per_1000=:kg_per_1000 WHERE sku=:sku""", f)
                     updated += 1
                 else:
-                    db.execute("""INSERT INTO products(sku,name,category,spec,unit,min_stock,unit_cost,prodata_code,barcode)
-                                  VALUES (:sku,:name,:category,:spec,:unit,:min_stock,:unit_cost,:prodata_code,:barcode)""", f)
+                    db.execute("""INSERT INTO products(sku,name,category,spec,unit,min_stock,unit_cost,prodata_code,barcode,kg_per_1000)
+                                  VALUES (:sku,:name,:category,:spec,:unit,:min_stock,:unit_cost,:prodata_code,:barcode,:kg_per_1000)""", f)
                     created += 1
             except ApiError as e:
-                errors.append(f"Row {i}: {e.message}")
+                errors.append(f"Rreshti {i}: {e.message}")
             except sqlite3.IntegrityError as e:
-                errors.append(f"Row {i}: {duplicate_message(e, f)}")
+                errors.append(f"Rreshti {i}: {duplicate_message(e, f)}")
         if not errors and "material_sku" in reader.fieldnames:
             for i, row in enumerate(rows, start=2):
                 try:
                     pid = db.execute("SELECT id FROM products WHERE sku=?", (text(row, "sku"),)).fetchone()["id"]
                     set_material(db, pid, row)
                 except ApiError as e:
-                    errors.append(f"Row {i}: {e.message}")
+                    errors.append(f"Rreshti {i}: {e.message}")
         db.execute("COMMIT" if not errors else "ROLLBACK")
     except Exception:
         db.execute("ROLLBACK")
@@ -949,7 +971,7 @@ def import_opening_stock():
     operator = g.user["username"]
     reader = read_csv(d)
     if not {"sku", "location", "qty"} <= set(reader.fieldnames):
-        raise ApiError("CSV needs the columns: sku, location, qty (lot is optional)")
+        raise ApiError("CSV duhet të ketë kolonat: sku, location, qty (lot është opsional)")
     count = 0
     errors = []
     db.execute("BEGIN IMMEDIATE")
@@ -959,9 +981,9 @@ def import_opening_stock():
                 sku, loc_name = (row.get("sku") or "").strip(), (row.get("location") or "").strip()
                 p = db.execute("SELECT id FROM products WHERE sku=? AND active=1", (sku,)).fetchone()
                 if not p:
-                    raise ApiError(f"unknown SKU '{sku}'")
+                    raise ApiError(f"shifër e panjohur '{sku}'")
                 if not loc_name:
-                    raise ApiError("location is empty")
+                    raise ApiError("lokacioni është bosh")
                 qty = num(row.get("qty"), "qty", 0.001)
                 check_whole(db, p["id"], qty, "qty")
                 loc = db.execute("SELECT id FROM locations WHERE name=?", (loc_name,)).fetchone()
@@ -969,7 +991,7 @@ def import_opening_stock():
                 insert_movement(db, p["id"], loc_id, "IN", qty, (row.get("lot") or "").strip(), "OPENING", "Opening stock import", operator)
                 count += 1
             except ApiError as e:
-                errors.append(f"Row {i}: {e.message}")
+                errors.append(f"Rreshti {i}: {e.message}")
         db.execute("COMMIT" if not errors else "ROLLBACK")
     except Exception:
         db.execute("ROLLBACK")

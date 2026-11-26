@@ -50,7 +50,7 @@ class StockTests(unittest.TestCase):
         self.move("IN", 50)
         r = self.move("OUT", 51)
         self.assertEqual(r.status_code, 400)
-        self.assertIn("Not enough stock", r.get_json()["error"])
+        self.assertIn("Stok i pamjaftueshëm", r.get_json()["error"])
         self.assertEqual(self.total(), 50)
 
     def test_lot_is_checked_separately(self):
@@ -161,7 +161,7 @@ class StockTests(unittest.TestCase):
     def test_exports_and_dashboard(self):
         self.move("IN", 40)
         self.assertIn("B1", self.c.get("/api/export/stock.csv").get_data(as_text=True))
-        self.assertIn("IN", self.c.get("/api/export/movements.csv").get_data(as_text=True))
+        self.assertIn("Pranim", self.c.get("/api/export/movements.csv").get_data(as_text=True))
         d = self.c.get("/api/dashboard").get_json()
         self.assertEqual((d["products"], d["low_count"], d["movements_today"]), (1, 1, 1))
 
@@ -172,7 +172,7 @@ class StockTests(unittest.TestCase):
         self.assertEqual(self.c.get("/api/lookup?code=nope").status_code, 404)
         r = self.c.post("/api/products", json={"sku": "B2", "name": "Other", "barcode": "5901234123457"})
         self.assertEqual(r.status_code, 409)
-        self.assertIn("Barcode", r.get_json()["error"])
+        self.assertIn("Barkodi", r.get_json()["error"])
         self.assertEqual(self.c.post("/api/products", json={"sku": "B3", "name": "x"}).status_code, 201)  # empty barcodes don't clash
         self.assertEqual(self.c.post("/api/products", json={"sku": "B4", "name": "y"}).status_code, 201)
 
@@ -433,7 +433,7 @@ class InsightsTests(unittest.TestCase):
         self.assertEqual(self.c.get("/api/insights?lead_days=0").status_code, 400)
         r = self.c.get("/api/export/insights.csv")
         self.assertEqual(r.status_code, 200)
-        self.assertIn("Suggested order", r.get_data(as_text=True))
+        self.assertIn("Porosia e sugjeruar", r.get_data(as_text=True))
 
     def test_round_up(self):
         r = self.insights.round_up

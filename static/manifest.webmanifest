@@ -1,7 +1,7 @@
 {
   "name": "Vinex Stock",
   "short_name": "Vinex Stock",
-  "description": "Stock management for Vinex Fasteners",
+  "description": "Menaxhimi i stokut për Vinex Fasteners", "lang": "sq",
   "id": "/",
   "start_url": "/",
   "scope": "/",
@@ -14,7 +14,7 @@
     { "src": "/static/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Stock", "url": "/?tab=stock" },
-    { "name": "Analytics", "url": "/?tab=an-overview" }
+    { "name": "Stoku", "url": "/?tab=stock" },
+    { "name": "Analitika", "url": "/?tab=an-overview" }
   ]
 }

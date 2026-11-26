@@ -32,5 +32,5 @@ def status():
 def sync(db):
     url, key = _config()
     if not (url and key):
-        raise ProdataNotConfigured("Prodata is not configured. Set VINEX_PRODATA_URL and VINEX_PRODATA_KEY.")
-    raise ProdataNotConfigured("Prodata sync is not implemented yet - it needs the Prodata API documentation.")
+        raise ProdataNotConfigured("Prodata nuk është konfiguruar. Vendosni VINEX_PRODATA_URL dhe VINEX_PRODATA_KEY.")
+    raise ProdataNotConfigured("Sinkronizimi me Prodata nuk është implementuar ende - nevojitet dokumentacioni i API-së së Prodata.")

@@ -1036,8 +1036,53 @@ def healthz():
     return "ok"
 
 
+def run_seed():
+    """One-time data load from the VINEX_SEED variable, for when nobody can upload the CSVs in the browser.
+    VINEX_SEED = base64(gzip(JSON {"key": "...", "steps": [["products" | "opening-stock", "<csv text>"], ...]})).
+    Each step goes through the normal import code, runs once (remembered in settings under its key) and
+    stops at the first failing step so nothing later is booked on top of it. The data itself never lives in git."""
+    raw = os.environ.get("VINEX_SEED", "").strip()
+    if not raw:
+        return
+    import base64, fcntl, json
+    try:
+        seed = json.loads(gzip.decompress(base64.b64decode(raw)))
+    except Exception as e:
+        print(f"[seed] VINEX_SEED could not be read: {e}", flush=True)
+        return
+    views = {"products": import_products, "opening-stock": import_opening_stock}
+    with open(DB_PATH + ".seed.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)             # only one process loads the seed
+        for i, (kind, body) in enumerate(seed["steps"], start=1):
+            key = f"seed:{seed['key']}:{i}"
+            db = connect()
+            done = db.execute("SELECT 1 FROM settings WHERE key=?", (key,)).fetchone()
+            db.close()
+            if done:
+                continue
+            with app.test_request_context(method="POST", json={"csv": body}):
+                g.user = {"username": "import-" + seed["key"]}
+                try:
+                    resp = views[kind]()
+                except ApiError as e:
+                    print(f"[seed] {key} {kind} failed: {e.message}", flush=True)
+                    return
+                resp, status = (resp if isinstance(resp, tuple) else (resp, 200))
+                result = resp.get_json()
+            if status != 200:
+                print(f"[seed] {key} {kind} failed: {result}", flush=True)
+                return
+            db = connect()
+            db.execute("INSERT INTO settings(key, value) VALUES (?, ?)", (key, json.dumps(result)))
+            db.execute("""INSERT INTO settings(key, value) VALUES ('data_version', '1')
+                          ON CONFLICT(key) DO UPDATE SET value = CAST(value AS INTEGER) + 1""")
+            db.close()
+            print(f"[seed] {key} {kind} ok: {result}", flush=True)
+
+
 init_db()
 auth.init(app, get_db, connect, ApiError)  # login, roles, user management; guards every /api route
+run_seed()
 
 if __name__ == "__main__":
     # Local use. 127.0.0.1 = this PC only; set VINEX_HOST=0.0.0.0 to let other PCs/phones on the LAN open it.

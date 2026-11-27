@@ -16,7 +16,10 @@ Built one at a time. Each item lands on the Insights page unless noted.
   - Warehouse activity: weekday x hour heatmap, lines per day, by person, by location
   - Stocktake accuracy: every count recorded (also matching ones), accuracy %, value lost and found by location, person and product
 
+- [x] **Forecast method by demand pattern**: weekly demand classified by ADI / CV2 (steady, erratic, occasional, lumpy); smooth items use exponential smoothing, the rest SBA, or TSB when demand is fading; a weekly average with under 8 weeks of history
+
 ## Next
+- [ ] **Forecast log and accuracy**: store every forecast and score it against what happened (bias, RMSSE), so the method choice can be checked on Vinex's own data
 - [ ] **Seasonal forecast**: add yearly seasonality (Holt-Winters) once there are two years of history
 - [ ] **Weekly report for management**: Monday summary of what to order, what ran low, unusual movements and stock value
 - [ ] **Heat number traceability**: from a lot, back to the wire-rod heat number and forward to every delivery from the same heat

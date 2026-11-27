@@ -405,6 +405,26 @@ class InsightsTests(unittest.TestCase):
         self.assertEqual(s["forecast_30d"], 3000)
         self.assertEqual(len(s["spark"]), 30)
 
+    def test_steady_demand_is_smooth_and_uses_ses(self):
+        s = self.item(self.c.get("/api/insights").get_json(), "STEADY")
+        self.assertEqual((s["pattern"], s["forecast_method"]), ("smooth", "ses"))
+        self.assertEqual(s["adi"], 1.0)
+
+    def test_new_product_with_little_history_is_not_classified(self):
+        from datetime import date, timedelta
+        db = stock.connect()
+        pid = db.execute("INSERT INTO products(sku, name, unit) VALUES ('NEWBIE', 'New', 'pcs')").lastrowid
+        lid = db.execute("SELECT id FROM locations LIMIT 1").fetchone()["id"]
+        for d in (27, 20, 13, 6):  # one issue a week for 4 full weeks
+            db.execute("INSERT INTO movements(product_id, location_id, kind, qty, created_at) VALUES (?,?,?,?,?)",
+                       (pid, lid, "OUT", -10, (date.today() - timedelta(days=d)).isoformat() + " 10:00:00"))
+        db.commit()
+        db.close()
+        n = self.item(self.c.get("/api/insights").get_json(), "NEWBIE")
+        self.assertIsNone(n["pattern"])
+        self.assertEqual(n["forecast_method"], "average")
+        self.assertIsNotNone(n["forecast_30d"])
+
     def test_order_now_and_quantity(self):
         d = self.c.get("/api/insights?lead_days=120&window=90").get_json()
         s = self.item(d, "STEADY")
@@ -696,3 +716,32 @@ class OpeningStockTests(unittest.TestCase):
         self.assertAlmostEqual(o["stock"]["value"], 1998.5 * 10.45 + 320 * 1.4583, places=2)
         bad = self.c.post("/api/import/opening-stock", json={"csv": "sku,location,qty,date\nB1,Magazina kryesore,1,2099-01-01\n"})
         self.assertEqual(bad.status_code, 400)
+
+
+class DemandMethodTests(unittest.TestCase):
+    def test_classification_follows_adi_and_cv2(self):
+        from insights import demand_pattern
+        self.assertEqual(demand_pattern([5] * 12)[0], "smooth")
+        self.assertEqual(demand_pattern([1, 9, 2, 12, 1, 15, 3, 10, 2, 14])[0], "erratic")
+        self.assertEqual(demand_pattern([0, 0, 6, 0, 0, 0, 5, 0, 0, 0, 6, 0])[0], "intermittent")
+        self.assertEqual(demand_pattern([0, 0, 1, 0, 0, 0, 20, 0, 0, 0, 2, 0])[0], "lumpy")
+        self.assertIsNone(demand_pattern([5, 0, 5, 0, 5])[0])            # fewer than 8 weeks
+        self.assertIsNone(demand_pattern([0] * 10 + [5, 5])[0])          # fewer than 3 weeks with demand
+
+    def test_sba_is_close_to_the_true_rate(self):
+        from insights import croston_sba
+        y = ([0, 0, 4, 0] * 10)                                           # a delivery of 4 every 4th week = 1 per week
+        self.assertAlmostEqual(croston_sba(y), 1.0, delta=0.15)
+        self.assertEqual(croston_sba([0, 0, 0]), 0.0)
+
+    def test_tsb_fades_when_demand_stops_but_sba_does_not(self):
+        from insights import tsb, croston_sba, weekly_forecast
+        y = [10, 0, 12, 0, 9, 0] + [0] * 14
+        self.assertLess(tsb(y), tsb(y[:6]) * 0.5)
+        self.assertEqual(weekly_forecast(y)[0], "tsb")
+        self.assertGreater(croston_sba(y), tsb(y))
+
+    def test_forecast_needs_four_weeks(self):
+        from insights import weekly_forecast
+        self.assertEqual(weekly_forecast([5, 5, 5])[:2], (None, None))
+        self.assertEqual(weekly_forecast([5, 5, 5, 5])[0], "average")

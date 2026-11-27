@@ -716,6 +716,9 @@ function findProduct(val) {
 }
 
 /* ---------- insights ---------- */
+const PATTERN = { smooth: 'E qëndrueshme', erratic: 'E ndryshueshme', intermittent: 'E rrallë', lumpy: 'E parregullt' };
+const METHOD = { ses: 'zbutje eksponenciale', sba: 'SBA, për kërkesë të rrallë', tsb: 'TSB, kërkesa po shuhet', average: 'mesatare javore (shumë pak historik për ta klasifikuar)' };
+const patternTag = i => !i.forecast_method ? '' : ` <span class="tag" title="Parashikimi: ${METHOD[i.forecast_method]}${i.adi != null ? `. Një dalje afërsisht çdo ${i.adi.toFixed(1)} javë, ndryshimi i sasive ${i.cv2.toFixed(2)}` : ''}">${i.pattern ? PATTERN[i.pattern] : 'Shumë herët'}${i.forecast_method === 'tsb' ? ' ↘' : ''}</span>`;
 const INS = { order_now: ['out', 'Porosit tani'], watch: ['low', 'Porosit së shpejti'], ok: ['ok', 'Mjafton'], no_demand: ['off', 'Pa kërkesë'] };
 function spark(v) {
   const W = 96, H = 26, max = Math.max(...v, 1), step = W / (v.length - 1 || 1);
@@ -753,7 +756,7 @@ async function viewInsights() {
     </div>
     <section class="panel" style="margin-bottom:16px"><div class="ph"><h2>Këshilla për riporositje</h2>
       ${action.length ? `<div class="seg" role="group" aria-label="Shfaq"><button data-all="0" class="${!state.insAll ? 'on' : ''}">Kërkojnë veprim (${action.length})</button><button data-all="1" class="${state.insAll ? 'on' : ''}">Të gjithë artikujt</button></div>` : ''}</div>
-      <div class="tablewrap"><table class="cards"><thead><tr><th>Artikulli</th><th>Këshilla</th><th class="num">Në stok</th><th class="num">Përdorim në ditë</th><th class="num">Mjafton për</th><th>30 ditët e fundit</th><th class="num">Riporosit te</th><th class="num">Porosit</th><th title="ABC: pjesa në vlerën e përdorimit. XYZ: sa e qëndrueshme është kërkesa.">Klasa</th></tr></thead><tbody>
+      <div class="tablewrap"><table class="cards"><thead><tr><th>Artikulli</th><th>Këshilla</th><th class="num">Në stok</th><th class="num">Përdorim në ditë</th><th class="num">Mjafton për</th><th>30 ditët e fundit</th><th class="num">Riporosit te</th><th class="num">Porosit</th><th title="ABC: pjesa në vlerën e përdorimit. XYZ: sa e qëndrueshme është kërkesa. Etiketa e fundit është lloji i kërkesës; mbaje kursorin sipër për të parë metodën e parashikimit.">Klasa</th></tr></thead><tbody>
       ${list.map(i => `<tr><td><div class="sku">${esc(i.sku)}</div><div class="sub">${esc(i.name)}</div></td>
         <td data-label="Këshilla"><span class="pill ${INS[i.status][0]}">${INS[i.status][1]}</span></td>
         <td data-label="Në stok" class="num"><span class="qty">${fmt(i.on_hand)}</span><span class="unit">${esc(UNIT(i.unit))}</span></td>
@@ -762,7 +765,7 @@ async function viewInsights() {
         <td data-label="30 ditët e fundit">${spark(i.spark)}</td>
         <td data-label="Riporosit te" class="num">${i.avg_daily ? fmt(i.reorder_point) : '—'}</td>
         <td data-label="Porosit" class="num">${i.order_qty ? `<span class="qty">${fmt(i.order_qty)}</span><span class="unit">${esc(UNIT(i.unit))}</span>` : '—'}</td>
-        <td data-label="Klasa">${i.abc || i.xyz ? `<span class="tag">${i.abc || '–'}${i.xyz || ''}</span>` : ''}${i.limited ? ' <span class="tag" title="Më pak se 4 javë historik">i ri</span>' : ''}</td></tr>`).join('')}
+        <td data-label="Klasa">${i.abc || i.xyz ? `<span class="tag">${i.abc || '–'}${i.xyz || ''}</span>` : ''}${i.limited ? ' <span class="tag" title="Më pak se 4 javë historik">i ri</span>' : ''}${patternTag(i)}</td></tr>`).join('')}
       </tbody></table></div></section>
     ${materialsPanel(d)}
     <div class="cols">
@@ -783,6 +786,7 @@ async function viewInsights() {
       <li><b>Riporosit te</b> është përdorimi gjatë kohës së furnizimit (${d.params.lead_days} ditë), plus stoku i sigurisë që ${d.params.service_level}% e kohëve të furnizimit të kalojnë pa mbetur pa stok, bazuar në sa ndryshon përdorimi ditor.</li>
       <li><b>Porosit</b> e kthen stokun te pika e riporositjes plus ${d.params.order_cycle_days} ditë përdorim, e rrumbullakuar lart.</li>
       <li><b>Klasa</b>: artikujt A përbëjnë 80% e parë të vlerës së përdorimit, B 15% e radhës, C pjesën tjetër. X do të thotë kërkesë javore e qëndrueshme, Y e ndryshueshme, Z e parregullt.</li>
+      <li><b>Lloji i kërkesës dhe parashikimi</b>: kërkesa javore e çdo artikulli klasifikohet sipas sa shpesh ka dalje dhe sa ndryshojnë sasitë. <i>E qëndrueshme</i> parashikohet me zbutje eksponenciale; <i>e ndryshueshme</i>, <i>e rrallë</i> dhe <i>e parregullt</i> me metodën SBA, e cila nuk e mbivlerëson kërkesën kur ka shumë javë pa dalje; kur kërkesa po shuhet përdoret TSB. Me më pak se 8 javë historik (ose më pak se 3 javë me dalje) nuk ka klasifikim dhe parashikimi është mesatarja javore.</li>
       <li><b>Lënda e parë e nevojshme</b>: <i>nevojitet tani</i> është lënda për produktet e gatshme që këshilla thotë t'i prodhoni tani. <i>Nevojitet për 30 ditë</i> vjen nga parashikimi i produkteve të gatshme herë sasia për 1.000. Lënda shënohet për porosi kur stoku i saj nuk mbulon nevojën e tanishme plus përdorimin gjatë kohës së furnizimit.</li>
       <li><b>Me lëvizje të ngadaltë</b> do të thotë në stok, por pa dalje për ${d.params.slow_days} ditë. <b>Lëvizje të pazakonta</b> janë daljet shumë mbi madhësinë e zakonshme të atij artikulli dhe inventarizimet që hoqën 2% ose më shumë të stokut.</li>
     </ul></details>`;

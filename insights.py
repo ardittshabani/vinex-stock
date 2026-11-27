@@ -4,6 +4,11 @@ Per product: demand per day, days of stock left, reorder point with safety stock
 suggested order quantity, ABC (value) and XYZ (variability) classes, a 30-day
 forecast and trend. Also lists slow-moving stock and unusual movements.
 
+Each product's weekly demand is classified (Syntetos-Boylan: ADI 1.32 / CV2 0.49 into smooth, erratic,
+intermittent or lumpy) and forecast with the matching method: SES for smooth demand, SBA (bias-corrected
+Croston) for intermittent / erratic / lumpy, TSB when demand seems to be dying out, and a plain average
+while there is too little history.
+
 Demand = issues (kind OUT). Reversed issues and reversal entries are ignored, and
 transfers / stocktake adjustments are not demand.
 """
@@ -15,6 +20,12 @@ Z_95 = 1.645          # service level 95 %
 ORDER_CYCLE_DAYS = 30  # how many days of demand one order should cover on top of the reorder point
 SLOW_DAYS = 60
 MIN_HISTORY_DAYS = 28  # below this the numbers are flagged "limited history"
+ADI_CUTOFF = 1.32      # average weeks between demands
+CV2_CUTOFF = 0.49      # squared variation of the demand sizes
+MIN_WEEKS = 8          # fewer weeks, or fewer than MIN_DEMAND_WEEKS weeks with demand: not enough to classify
+MIN_DEMAND_WEEKS = 3
+CROSTON_ALPHA = 0.1    # smoothing of sizes and intervals
+TSB_BETA = 0.05        # smoothing of the probability of demand
 
 _NOT_REVERSED = """kind='OUT' AND reversal_of IS NULL
     AND NOT EXISTS (SELECT 1 FROM movements r WHERE r.reversal_of = m.id)"""
@@ -39,6 +50,67 @@ def _ses(values, alpha=0.3):
     for v in values[1:]:
         level = alpha * v + (1 - alpha) * level
     return level
+
+
+def demand_pattern(weekly):
+    """Classify weekly demand. Returns (pattern, adi, cv2); pattern is None when there is too little history."""
+    nz = [v for v in weekly if v > 0]
+    if len(weekly) < MIN_WEEKS or len(nz) < MIN_DEMAND_WEEKS:
+        return None, None, None
+    adi = len(weekly) / len(nz)
+    mean = statistics.mean(nz)
+    cv2 = (statistics.stdev(nz) / mean) ** 2 if mean > 0 else 0.0
+    regular = adi < ADI_CUTOFF
+    steady = cv2 < CV2_CUTOFF
+    pattern = "smooth" if regular and steady else "erratic" if regular else "intermittent" if steady else "lumpy"
+    return pattern, adi, cv2
+
+
+def croston_sba(weekly, alpha=CROSTON_ALPHA):
+    """Syntetos-Boylan approximation: Croston's size / interval smoothing, corrected for its upward bias."""
+    first = next((i for i, v in enumerate(weekly) if v > 0), None)
+    if first is None:
+        return 0.0
+    size, interval, gap = weekly[first], first + 1, 1
+    for v in weekly[first + 1:]:
+        if v > 0:
+            size += alpha * (v - size)
+            interval += alpha * (gap - interval)
+            gap = 1
+        else:
+            gap += 1
+    return (1 - alpha / 2) * size / interval
+
+
+def tsb(weekly, alpha=CROSTON_ALPHA, beta=TSB_BETA):
+    """Teunter-Syntetos-Babai: updates the probability of demand every week, so the forecast fades during
+    long runs without demand (products that are dying out)."""
+    first = next((i for i, v in enumerate(weekly) if v > 0), None)
+    if first is None:
+        return 0.0
+    prob = sum(1 for v in weekly if v > 0) / len(weekly)
+    size = weekly[first]
+    for v in weekly:
+        prob += beta * ((1 if v > 0 else 0) - prob)
+        if v > 0:
+            size += alpha * (v - size)
+    return prob * size
+
+
+def weekly_forecast(weekly):
+    """Pick the method that suits the demand pattern. Returns (method, per_week, pattern, adi, cv2);
+    per_week is None with fewer than 4 weeks. Methods: ses, sba, tsb, average."""
+    if len(weekly) < 4:
+        return None, None, None, None, None
+    pattern, adi, cv2 = demand_pattern(weekly)
+    if pattern is None:
+        return "average", statistics.mean(weekly), None, None, None
+    if pattern == "smooth":
+        return "ses", _ses(weekly), pattern, adi, cv2
+    idle = next((k for k, v in enumerate(reversed(weekly)) if v > 0), len(weekly))  # weeks since the last demand
+    if idle > 2 * adi:
+        return "tsb", tsb(weekly), pattern, adi, cv2
+    return "sba", croston_sba(weekly), pattern, adi, cv2
 
 
 def _classify_abc(items):
@@ -101,7 +173,8 @@ def compute(db, stock, lead_days=14, window=90, today=None):
         if len(weekly) >= 4 and statistics.mean(weekly) > 0:
             cv = statistics.pstdev(weekly) / statistics.mean(weekly)
             xyz = "X" if cv < 0.5 else "Y" if cv < 1.0 else "Z"
-        forecast = round(_ses(weekly) * 30 / 7) if len(weekly) >= 4 else None
+        method, per_week, pattern, adi, cv2 = weekly_forecast(weekly)
+        forecast = round(per_week * 30 / 7) if per_week is not None else None
         trend = None
         if n >= 56:
             last, prev = sum(daily[-28:]), sum(daily[-56:-28])
@@ -116,6 +189,8 @@ def compute(db, stock, lead_days=14, window=90, today=None):
             "stockout_date": None if cover is None or cover > 730 else (today + timedelta(days=int(cover))).isoformat(),
             "safety_stock": round(safety), "reorder_point": round(rop), "order_qty": order_qty,
             "status": status, "abc": None, "xyz": xyz, "trend_pct": trend, "forecast_30d": forecast,
+            "pattern": pattern, "forecast_method": method,
+            "adi": None if adi is None else round(adi, 2), "cv2": None if cv2 is None else round(cv2, 2),
             "history_days": n, "limited": n < MIN_HISTORY_DAYS, "spark": [round(v, 2) for v in spark],
             "consumption_value": total * cost if cost else 0,
             "value_on_hand": on_hand * cost if cost and on_hand > 0 else 0,
